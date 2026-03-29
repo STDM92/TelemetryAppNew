@@ -108,7 +108,19 @@ class IRacingReceiver:
         except (TypeError, ValueError):
             return None
 
-    def _get_distance_ahead_behind_float(self, name: str) -> Optional[float]:
+    def _get_airpressure_pa(self, name: str) -> Optional[float]:
+        # iRacing exposes air pressure in inHg.
+        # The unified model stores air pressure in Pa.
+        # Conversion: 1 inHg = 3386.389 Pa
+        raw_value = self._get(name)
+        if raw_value is None:
+            return None
+        try:
+            return float(raw_value) * 3386.389
+        except (TypeError, ValueError):
+            return None
+
+    def _get_float_distance_ahead_behind(self, name: str) -> Optional[float]:
         value = self._get(name)
         if value is None:
             return None
@@ -339,8 +351,8 @@ class IRacingReceiver:
                 car_index=self._get_int("PlayerCarIdx"),
                 gap_ahead_s=None,
                 gap_behind_s=None,
-                distance_ahead_m=self._get_distance_ahead_behind_float("CarDistAhead"),
-                distance_behind_m=self._get_distance_ahead_behind_float("CarDistBehind"),
+                distance_ahead_m=self._get_float_distance_ahead_behind("CarDistAhead"),
+                distance_behind_m=self._get_float_distance_ahead_behind("CarDistBehind"),
             )
 
             inputs = DriverInputs(
@@ -426,7 +438,7 @@ class IRacingReceiver:
                     else self._get_float("TrackTemp")
                 ),
                 relative_humidity_ratio=self._ratio_like(self._get_float("RelativeHumidity")),
-                air_pressure_pa=self._get_float("AirPressure"),
+                air_pressure_pa=self._get_airpressure_pa("AirPressure"),
                 air_density_kg_m3=self._get_float("AirDensity"),
                 wind_speed_mps=self._get_float("WindVel"),
                 wind_direction_rad=self._get_float("WindDir"),

@@ -6,12 +6,13 @@ from pathlib import Path
 from telemetry.administrator import TelemetryStateAdministrator
 from telemetry.receivers.iracing_receiver import IRacingReceiver
 
-
 OUTPUT_PATH = Path("brake_events.json")
 
 
 def main():
     print("Starting Race Telemetry App...")
+    # This will tell you exactly where it is saving!
+    print(f"Will save JSON to: {OUTPUT_PATH.absolute()}")
 
     administrator = TelemetryStateAdministrator()
     receiver = IRacingReceiver()
@@ -30,6 +31,9 @@ def main():
 
             current_brake = latest.inputs.brake_ratio or 0.0
 
+            # UNCOMMENT THIS to spam the console and verify data is flowing:
+            # print(f"Raw Brake Input: {current_brake:.3f}")
+
             brake_just_pressed = last_brake < 0.02 and current_brake >= 0.02
 
             if brake_just_pressed:
@@ -45,7 +49,7 @@ def main():
                 with OUTPUT_PATH.open("w", encoding="utf-8") as f:
                     json.dump(brake_events, f, ensure_ascii=False, indent=2)
 
-                print("Brake event captured.")
+                print("Brake event captured!")
 
             last_brake = current_brake
 
