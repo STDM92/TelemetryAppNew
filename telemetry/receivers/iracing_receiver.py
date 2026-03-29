@@ -31,79 +31,42 @@ from telemetry.models.unified_snapshot import (
 )
 
 
-IRSDK_SESSION_STATE = {
-    0: "invalid",
-    1: "get_in_car",
-    2: "warmup",
-    3: "parade_laps",
-    4: "racing",
-    5: "checkered",
-    6: "cooldown",
-}
+def enum_class_to_dict(enum_cls, *, overrides: dict[int, str] | None = None) -> dict[int, str]:
+    result = {}
+    for name, value in vars(enum_cls).items():
+        if name.startswith("_"):
+            continue
+        if isinstance(value, int):
+            result[value] = name
+    if overrides:
+        result.update(overrides)
+    return result
 
-IRSDK_TRACK_LOCATION = {
-    -1: "not_in_world",
-    0: "off_track",
-    1: "in_pit_stall",
-    2: "approaching_pits",
-    3: "on_track",
-}
 
-IRSDK_SKIES = {
-    0: "clear",
-    1: "partly_cloudy",
-    2: "mostly_cloudy",
-    3: "overcast",
-}
+def bitfield_class_to_dict(bitfield_cls) -> dict[int, str]:
+    result = {}
+    for name, value in vars(bitfield_cls).items():
+        if name.startswith("_"):
+            continue
+        if isinstance(value, int):
+            result[value] = name
+    return result
 
-# Newer live schemas may expose more values than the older public PDF.
-IRSDK_TRACK_WETNESS = {
-    0: "dry",
-    1: "mostly_dry",
-    2: "very_lightly_wet",
-    3: "lightly_wet",
-    4: "moderately_wet",
-    5: "very_wet",
-    6: "extremely_wet",
-}
 
-IRSDK_FLAG_BITS = {
-    0x00000001: "checkered",
-    0x00000002: "white",
-    0x00000004: "green",
-    0x00000008: "yellow",
-    0x00000010: "red",
-    0x00000020: "blue",
-    0x00000040: "debris",
-    0x00000080: "crossed",
-    0x00000100: "yellow_waving",
-    0x00000200: "one_lap_to_green",
-    0x00000400: "green_held",
-    0x00000800: "ten_to_go",
-    0x00001000: "five_to_go",
-    0x00002000: "random_waving",
-    0x00004000: "caution",
-    0x00008000: "caution_waving",
-    0x00010000: "black",
-    0x00020000: "disqualify",
-    0x00040000: "servicible",
-    0x00080000: "furled",
-    0x00100000: "repair",
-    0x10000000: "start_hidden",
-    0x20000000: "start_ready",
-    0x40000000: "start_set",
-    0x80000000: "start_go",
-}
+IRSDK_SESSION_STATE = enum_class_to_dict(irsdk.SessionState, overrides={2: "approaching_pits"}) #typo in original enum from lib
+IRSDK_TRACK_LOCATION = enum_class_to_dict(irsdk.TrkLoc, overrides={2: "approaching_pits"}) #typo in original enum from lib
+IRSDK_TRACK_SURFACE = enum_class_to_dict(irsdk.TrkSurf)
+IRSDK_TRACK_WETNESS = enum_class_to_dict(irsdk.TrackWetness)
 
-IRSDK_PIT_SERVICE_STATUS_BITS = {
-    0x0001: "lf_tire_change",
-    0x0002: "rf_tire_change",
-    0x0004: "lr_tire_change",
-    0x0008: "rr_tire_change",
-    0x0010: "fuel_fill",
-    0x0020: "windshield_tearoff",
-    0x0040: "fast_repair",
-}
+IRSDK_FLAG_BITS = bitfield_class_to_dict(irsdk.Flags)
+IRSDK_PIT_SERVICE_STATUS_BITS = bitfield_class_to_dict(irsdk.PitSvFlags)
+IRSDK_ENGINE_WARNINGS = bitfield_class_to_dict(irsdk.EngineWarnings)
+IRSDK_PIT_SERVICE_STATUS = enum_class_to_dict(irsdk.PitSvStatus)
+IRSDK_PACE_MODE = enum_class_to_dict(irsdk.PaceMode)
+IRSDK_PACE_FLAGS = bitfield_class_to_dict(irsdk.PaceFlags)
+IRSDK_CAR_LEFT_RIGHT = enum_class_to_dict(irsdk.CarLeftRight)
+
+IRSDK_SKIES = { 0: "clear", 1: "partly_cloudy", 2: "mostly_cloudy", 3: "overcast", } #not included in original enum from lib
 
 
 class IRacingReceiver:
@@ -145,6 +108,18 @@ class IRacingReceiver:
         except (TypeError, ValueError):
             return None
 
+    def _get_distance_ahead_behind_float(self, name: str) -> Optional[float]:
+        value = self._get(name)
+        if value is None:
+            return None
+        try:
+            f = float(value)
+            if f >= 500000.0:
+                return None
+            return f
+        except (TypeError, ValueError):
+            return None
+
     def _get_int(self, name: str) -> Optional[int]:
         value = self._get(name)
         if value is None:
@@ -153,6 +128,12 @@ class IRacingReceiver:
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    def _get_session_laps_int(self, name: str) -> Optional[int]:
+        value = self._get_int(name)
+        if value is None or value == 32767:
+            return None
+        return value
 
     def _map_enum(self, value: Any, mapping: dict[int, str]) -> Optional[str]:
         if value is None:
@@ -289,10 +270,9 @@ class IRacingReceiver:
                             self._safe_array_value(track_surface, idx),
                             IRSDK_TRACK_LOCATION,
                         ),
-                        track_surface=(
-                            None
-                            if self._safe_array_value(track_surface_material, idx) is None
-                            else str(self._safe_array_value(track_surface_material, idx))
+                        track_surface=self._map_enum(
+                            self._safe_array_value(track_surface_material, idx),
+                            IRSDK_TRACK_SURFACE,
                         ),
                         last_lap_time_s=self._safe_array_float_allow_negative_one(last_lap_time, idx),
                         best_lap_time_s=self._safe_array_float_allow_negative_one(best_lap_time, idx),
@@ -325,11 +305,11 @@ class IRacingReceiver:
                 session_flags=self._decode_bitfield(self._get("SessionFlags"), IRSDK_FLAG_BITS),
                 session_time_s=self._get_float("SessionTime"),
                 session_time_remaining_s=self._get_float("SessionTimeRemain"),
-                session_laps_total=self._get_int("SessionLapsTotal"),
+                session_laps_total=self._get_session_laps_int("SessionLapsTotal"),
                 session_laps_remaining=(
-                    self._get_int("SessionLapsRemainEx")
-                    if self._get_int("SessionLapsRemainEx") is not None
-                    else self._get_int("SessionLapsRemain")
+                    self._get_session_laps_int("SessionLapsRemainEx")
+                    if self._get_session_laps_int("SessionLapsRemainEx") is not None
+                    else self._get_session_laps_int("SessionLapsRemain")
                 ),
                 is_on_track=self._get_bool("IsOnTrack"),
                 is_on_pit_road=self._get_bool("OnPitRoad"),
@@ -359,8 +339,8 @@ class IRacingReceiver:
                 car_index=self._get_int("PlayerCarIdx"),
                 gap_ahead_s=None,
                 gap_behind_s=None,
-                distance_ahead_m=self._get_float("CarDistAhead"),
-                distance_behind_m=self._get_float("CarDistBehind"),
+                distance_ahead_m=self._get_distance_ahead_behind_float("CarDistAhead"),
+                distance_behind_m=self._get_distance_ahead_behind_float("CarDistBehind"),
             )
 
             inputs = DriverInputs(

@@ -7,7 +7,7 @@ from telemetry.administrator import TelemetryStateAdministrator
 from telemetry.receivers.iracing_receiver import IRacingReceiver
 
 
-OUTPUT_PATH = Path("telemetry_stream.jsonl")
+OUTPUT_PATH = Path("brake_events.json")
 
 
 def main():
@@ -18,23 +18,38 @@ def main():
 
     print("\nWaiting for iRacing to launch...\n")
 
-    with OUTPUT_PATH.open("a", encoding="utf-8") as f:
-        i = 0
-        while True:
-            i += 1
-            snapshot = receiver.capture_snapshot()
+    brake_events = []
+    last_brake = 0.0
 
-            if snapshot is not None:
-                administrator.apply_snapshot(snapshot)
-                latest = administrator.get_latest_snapshot()
+    while True:
+        snapshot = receiver.capture_snapshot()
 
-                f.write(json.dumps(asdict(latest), ensure_ascii=False) + "\n")
-                if i > 60:
-                    f.flush()
-                    i = 0
+        if snapshot is not None:
+            administrator.apply_snapshot(snapshot)
+            latest = administrator.get_latest_snapshot()
 
+            current_brake = latest.inputs.brake_ratio or 0.0
 
-            time.sleep(1 / 60)
+            brake_just_pressed = last_brake < 0.02 and current_brake >= 0.02
+
+            if brake_just_pressed:
+                event = {
+                    "event_type": "brake_press",
+                    "event_time": time.time(),
+                    "brake_threshold": 0.02,
+                    "snapshot": asdict(latest),
+                }
+
+                brake_events.append(event)
+
+                with OUTPUT_PATH.open("w", encoding="utf-8") as f:
+                    json.dump(brake_events, f, ensure_ascii=False, indent=2)
+
+                print("Brake event captured.")
+
+            last_brake = current_brake
+
+        time.sleep(1 / 60)
 
 
 if __name__ == "__main__":
