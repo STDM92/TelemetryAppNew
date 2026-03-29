@@ -53,8 +53,8 @@ def bitfield_class_to_dict(bitfield_cls) -> dict[int, str]:
     return result
 
 
-IRSDK_SESSION_STATE = enum_class_to_dict(irsdk.SessionState, overrides={2: "approaching_pits"}) #typo in original enum from lib
-IRSDK_TRACK_LOCATION = enum_class_to_dict(irsdk.TrkLoc, overrides={2: "approaching_pits"}) #typo in original enum from lib
+IRSDK_SESSION_STATE = enum_class_to_dict(irsdk.SessionState, overrides={2: "approaching_pits"})
+IRSDK_TRACK_LOCATION = enum_class_to_dict(irsdk.TrkLoc, overrides={2: "approaching_pits"})
 IRSDK_TRACK_SURFACE = enum_class_to_dict(irsdk.TrkSurf)
 IRSDK_TRACK_WETNESS = enum_class_to_dict(irsdk.TrackWetness)
 
@@ -66,35 +66,28 @@ IRSDK_PACE_MODE = enum_class_to_dict(irsdk.PaceMode)
 IRSDK_PACE_FLAGS = bitfield_class_to_dict(irsdk.PaceFlags)
 IRSDK_CAR_LEFT_RIGHT = enum_class_to_dict(irsdk.CarLeftRight)
 
-IRSDK_SKIES = { 0: "clear", 1: "partly_cloudy", 2: "mostly_cloudy", 3: "overcast", } #not included in original enum from lib
+IRSDK_SKIES = { 0: "clear", 1: "partly_cloudy", 2: "mostly_cloudy", 3: "overcast", }
 
 
-class IRacingReceiver:
+class IRacingBaseParser:
     def __init__(self) -> None:
-        self.ir = irsdk.IRSDK()
         self.connected = False
+        self.source_name = "iracing" # Readers can override this to "iracing_replay"
 
+    # --- ABSTRACT METHODS (Implemented by Receiver/Reader) ---
     def check_connection(self) -> None:
-        if self.connected and not (self.ir.is_initialized and self.ir.is_connected):
-            self.connected = False
-            self.ir.shutdown()
-            print("iRacing disconnected.")
-        elif (
-            not self.connected
-            and self.ir.startup()
-            and self.ir.is_initialized
-            and self.ir.is_connected
-        ):
-            self.connected = True
-            print("iRacing connected. Listening for telemetry...")
+        raise NotImplementedError
 
     def _get(self, name: str, default: Any = None) -> Any:
-        try:
-            value = self.ir[name]
-            return default if value is None else value
-        except KeyError:
-            return default
+        raise NotImplementedError
 
+    def _pre_capture(self) -> None:
+        pass
+
+    def _post_capture(self) -> None:
+        pass
+
+    # --- SHARED HELPER METHODS ---
     def _get_bool(self, name: str) -> Optional[bool]:
         value = self._get(name)
         return None if value is None else bool(value)
@@ -109,9 +102,6 @@ class IRacingReceiver:
             return None
 
     def _get_airpressure_pa(self, name: str) -> Optional[float]:
-        # iRacing exposes air pressure in inHg.
-        # The unified model stores air pressure in Pa.
-        # Conversion: 1 inHg = 3386.389 Pa
         raw_value = self._get(name)
         if raw_value is None:
             return None
@@ -296,12 +286,13 @@ class IRacingReceiver:
             cars=tuple(cars),
         )
 
+    # --- THE MASTER PARSER LOGIC ---
     def capture_snapshot(self) -> UnifiedTelemetrySnapshot | None:
         self.check_connection()
         if not self.connected:
             return None
 
-        self.ir.freeze_var_buffer_latest()
+        self._pre_capture()
         try:
             speed_mps = self._get_float("Speed")
             lat_accel = self._get_float("LatAccel")
@@ -310,7 +301,7 @@ class IRacingReceiver:
             player_tire_compound = self._get_int("PlayerTireCompound")
 
             session = SessionInfo(
-                simulator_name="iracing",
+                simulator_name=self.source_name,
                 track_name=None,
                 session_type=None,
                 session_phase=self._map_enum(self._get("SessionState"), IRSDK_SESSION_STATE),
@@ -468,7 +459,7 @@ class IRacingReceiver:
             track_map = self._build_track_map()
 
             return UnifiedTelemetrySnapshot(
-                source="iracing",
+                source=self.source_name,
                 timestamp=time.time(),
                 session=session,
                 lap=lap,
@@ -484,7 +475,7 @@ class IRacingReceiver:
                 track_map=track_map,
             )
         except Exception as ex:
-            print(f"Failed to capture iRacing snapshot: {ex}")
+            print(f"Failed to capture snapshot: {ex}")
             return None
         finally:
-            self.ir.unfreeze_var_buffer_latest()
+            self._post_capture()

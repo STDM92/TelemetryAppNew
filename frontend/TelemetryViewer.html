@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Engineer HUD</title>
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 800px; margin: 0 auto; }
+        .card { background-color: #1e1e1e; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .value { font-size: 2em; font-weight: bold; margin-bottom: 10px; }
+        .bar-bg { background-color: #333; height: 30px; border-radius: 5px; overflow: hidden; margin-top: 5px; }
+        .bar-fill { height: 100%; width: 0%; transition: width 0.05s linear; }
+        #throttle-fill { background-color: #00ff00; }
+        #brake-fill { background-color: #ff0000; }
+        .status { text-align: center; margin-bottom: 20px; color: #888; }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-align: center;">🏁 Live Telemetry HUD</h1>
+    <div id="connection-status" class="status">Connecting to car...</div>
+
+    <div class="dashboard">
+        <div class="card">
+            <div>Speed</div>
+            <div id="speed" class="value">0.0 kph</div>
+            <div>Gear</div>
+            <div id="gear" class="value">N</div>
+        </div>
+        
+        <div class="card">
+            <div>Throttle</div>
+            <div class="bar-bg"><div id="throttle-fill" class="bar-fill"></div></div>
+            <div style="margin-top: 20px;">Brake</div>
+            <div class="bar-bg"><div id="brake-fill" class="bar-fill"></div></div>
+        </div>
+    </div>
+
+    <script>
+        // Connect directly to the FastAPI WebSocket
+        const ws = new WebSocket("ws://localhost:8000/ws");
+        const statusText = document.getElementById("connection-status");
+
+        ws.onopen = () => {
+            statusText.innerText = "🟢 Connected to Engine";
+            statusText.style.color = "#00ff00";
+        };
+
+        ws.onclose = () => {
+            statusText.innerText = "🔴 Disconnected. Is the Engine running?";
+            statusText.style.color = "#ff0000";
+        };
+
+        // This runs 60 times a second whenever the backend pushes data!
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // Update Text Values
+            document.getElementById("speed").innerText = data.powertrain.vehicle_speed_kph ? data.powertrain.vehicle_speed_kph.toFixed(1) + " kph" : "0.0 kph";
+            document.getElementById("gear").innerText = data.powertrain.gear !== null ? data.powertrain.gear : "N";
+            
+            // Update Pedal Bars (0.0 to 1.0 -> 0% to 100%)
+            const throttlePct = (data.inputs.throttle_ratio || 0.0) * 100;
+            const brakePct = (data.inputs.brake_ratio || 0.0) * 100;
+            
+            document.getElementById("throttle-fill").style.width = throttlePct + "%";
+            document.getElementById("brake-fill").style.width = brakePct + "%";
+        };
+    </script>
+</body>
+</html>
