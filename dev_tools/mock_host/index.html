@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remote Race Engineer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0d0d0f;
+      --bg-secondary: #16171a;
+      --bg-card: linear-gradient(145deg, #1a1b1f 0%, #141518 100%);
+      --border-color: #2a2b30;
+      --text-primary: #ffffff;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent-green: #22c55e;
+      --accent-green-glow: rgba(34, 197, 94, 0.3);
+      --accent-red: #ef4444;
+      --accent-orange: #f97316;
+      --accent-cyan: #06b6d4;
+      --accent-cyan-glow: rgba(6, 182, 212, 0.2);
+      --warning-yellow: #eab308;
+      --neutral-grey: #64748b;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .dashboard {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header Bar */
+    .header-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-primary);
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--neutral-grey);
+    }
+
+    .status-dot.connected {
+      background-color: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green-glow);
+    }
+
+    .status-dot.error {
+      background-color: var(--accent-red);
+    }
+
+    .header-stats {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .header-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .header-stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .header-stat-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Main Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 300px;
+      gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+      .main-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .track-map-section {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+      .track-map-section {
+        grid-column: span 1;
+      }
+    }
+
+    /* Card Base */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    /* Hero Metrics */
+    .hero-section {
+      grid-column: span 2;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 1200px) {
+      .hero-section {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .hero-section {
+        grid-column: span 1;
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .hero-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .hero-card.speed {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 20px var(--accent-cyan-glow);
+    }
+
+    .hero-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .hero-value {
+      font-size: 48px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text-primary);
+    }
+
+    .hero-value.speed-value {
+      font-size: 56px;
+      color: var(--accent-cyan);
+    }
+
+    .hero-unit {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .hero-value.positive {
+      color: var(--accent-green);
+    }
+
+    .hero-value.negative {
+      color: var(--accent-red);
+    }
+
+    .hero-value.gear {
+      font-size: 64px;
+      font-weight: 800;
+    }
+
+    /* Driver Inputs */
+    .inputs-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .input-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      width: 70px;
+      flex-shrink: 0;
+    }
+
+    .input-bar-container {
+      flex: 1;
+      height: 24px;
+      background-color: var(--bg-secondary);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .input-bar {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.05s ease-out;
+    }
+
+    .input-bar.throttle {
+      background: linear-gradient(90deg, var(--accent-green), #4ade80);
+      box-shadow: 0 0 10px var(--accent-green-glow);
+    }
+
+    .input-bar.brake {
+      background: linear-gradient(90deg, var(--accent-orange), var(--accent-red));
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+    }
+
+    .input-bar.rpm {
+      background: linear-gradient(90deg, var(--accent-cyan), #38bdf8);
+    }
+
+    .input-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      width: 50px;
+      text-align: right;
+    }
+
+    /* Steering Indicator */
+    .steering-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .steering-track {
+      flex: 1;
+      height: 24px;
+      background-color: var(--bg-secondary);
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .steering-center {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: var(--border-color);
+      transform: translateX(-50%);
+    }
+
+    .steering-indicator {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      width: 16px;
+      background: linear-gradient(180deg, var(--accent-cyan), #0891b2);
+      border-radius: 4px;
+      transform: translateX(-50%);
+      transition: left 0.05s ease-out;
+      box-shadow: 0 0 8px var(--accent-cyan-glow);
+    }
+
+    /* Race Context */
+    .race-context-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .context-item {
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .context-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .context-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .context-value.pit-active {
+      color: var(--warning-yellow);
+    }
+
+    .context-value.time {
+      font-family: 'SF Mono', 'Consolas', monospace;
+    }
+
+    /* Tire Overview */
+    .tire-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .tire-card {
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .tire-position {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .tire-pressure {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .tire-pressure-unit {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .tire-temp {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    .tire-temp.cold {
+      color: var(--accent-cyan);
+    }
+
+    .tire-temp.optimal {
+      color: var(--accent-green);
+    }
+
+    .tire-temp.hot {
+      color: var(--accent-orange);
+    }
+
+    .tire-temp.critical {
+      color: var(--accent-red);
+    }
+
+    /* Track Map */
+    .track-map-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .track-map-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 250px;
+    }
+
+    .track-map-svg {
+      width: 100%;
+      max-width: 240px;
+      height: auto;
+    }
+
+    .track-empty {
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    /* Environment */
+    .environment-section {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .env-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .env-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .env-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Bottom Row */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 800px) {
+      .bottom-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <!-- Header Bar -->
+    <header class="header-bar">
+      <div class="header-left">
+        <div class="header-title">RACE ENGINEER</div>
+        <div class="connection-status">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="connectionText">Disconnected</span>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="header-stat">
+          <span class="header-stat-label">Source</span>
+          <span class="header-stat-value" id="source">—</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-label">Session</span>
+          <span class="header-stat-value" id="sessionPhase">—</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-label">Lap</span>
+          <span class="header-stat-value" id="currentLap">—</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-label">Position</span>
+          <span class="header-stat-value" id="overallPosition">—</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-label">Class Pos</span>
+          <span class="header-stat-value" id="classPosition">—</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Metrics -->
+    <section class="hero-section">
+      <div class="hero-card speed">
+        <span class="hero-label">Speed</span>
+        <span class="hero-value speed-value" id="speed">—</span>
+        <span class="hero-unit">KPH</span>
+      </div>
+      <div class="hero-card">
+        <span class="hero-label">Gear</span>
+        <span class="hero-value gear" id="gear">N</span>
+        <span class="hero-unit">&nbsp;</span>
+      </div>
+      <div class="hero-card">
+        <span class="hero-label">Delta to Best</span>
+        <span class="hero-value" id="delta">—</span>
+        <span class="hero-unit">seconds</span>
+      </div>
+      <div class="hero-card">
+        <span class="hero-label">Fuel</span>
+        <span class="hero-value" id="fuel">—</span>
+        <span class="hero-unit">liters</span>
+      </div>
+    </section>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+      <!-- Driver Inputs -->
+      <div class="card">
+        <h2 class="card-title">Driver Inputs</h2>
+        <div class="inputs-section">
+          <div class="input-row">
+            <span class="input-label">Throttle</span>
+            <div class="input-bar-container">
+              <div class="input-bar throttle" id="throttleBar" style="width: 0%"></div>
+            </div>
+            <span class="input-value" id="throttleValue">0%</span>
+          </div>
+          <div class="input-row">
+            <span class="input-label">Brake</span>
+            <div class="input-bar-container">
+              <div class="input-bar brake" id="brakeBar" style="width: 0%"></div>
+            </div>
+            <span class="input-value" id="brakeValue">0%</span>
+          </div>
+          <div class="input-row">
+            <span class="input-label">RPM</span>
+            <div class="input-bar-container">
+              <div class="input-bar rpm" id="rpmBar" style="width: 0%"></div>
+            </div>
+            <span class="input-value" id="rpmValue">0</span>
+          </div>
+          <div class="steering-container">
+            <span class="input-label">Steering</span>
+            <div class="steering-track">
+              <div class="steering-center"></div>
+              <div class="steering-indicator" id="steeringIndicator" style="left: 50%"></div>
+            </div>
+            <span class="input-value" id="steeringValue">0°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Race Context -->
+      <div class="card">
+        <h2 class="card-title">Race Context</h2>
+        <div class="race-context-grid">
+          <div class="context-item">
+            <span class="context-label">Gap Ahead</span>
+            <span class="context-value" id="gapAhead">—</span>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Gap Behind</span>
+            <span class="context-value" id="gapBehind">—</span>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Pit Status</span>
+            <span class="context-value" id="pitStatus">On Track</span>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Time Remaining</span>
+            <span class="context-value time" id="timeRemaining">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Track Map -->
+      <div class="card track-map-section">
+        <h2 class="card-title">Track Map</h2>
+        <div class="track-map-container" id="trackMapContainer">
+          <span class="track-empty">Track map unavailable</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="bottom-row">
+      <!-- Tire Overview -->
+      <div class="card">
+        <h2 class="card-title">Tires</h2>
+        <div class="tire-grid">
+          <div class="tire-card">
+            <div class="tire-position">LF</div>
+            <div class="tire-pressure" id="tireLfPressure">—</div>
+            <div class="tire-pressure-unit">kPa</div>
+            <div class="tire-temp optimal" id="tireLfTemp">— °C</div>
+          </div>
+          <div class="tire-card">
+            <div class="tire-position">RF</div>
+            <div class="tire-pressure" id="tireRfPressure">—</div>
+            <div class="tire-pressure-unit">kPa</div>
+            <div class="tire-temp optimal" id="tireRfTemp">— °C</div>
+          </div>
+          <div class="tire-card">
+            <div class="tire-position">LR</div>
+            <div class="tire-pressure" id="tireLrPressure">—</div>
+            <div class="tire-pressure-unit">kPa</div>
+            <div class="tire-temp optimal" id="tireLrTemp">— °C</div>
+          </div>
+          <div class="tire-card">
+            <div class="tire-position">RR</div>
+            <div class="tire-pressure" id="tireRrPressure">—</div>
+            <div class="tire-pressure-unit">kPa</div>
+            <div class="tire-temp optimal" id="tireRrTemp">— °C</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lap Times -->
+      <div class="card">
+        <h2 class="card-title">Lap Times</h2>
+        <div class="race-context-grid">
+          <div class="context-item">
+            <span class="context-label">Current</span>
+            <span class="context-value time" id="currentLapTime">—</span>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Last Lap</span>
+            <span class="context-value time" id="lastLapTime">—</span>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Best Lap</span>
+            <span class="context-value time" id="bestLapTime">—</span>
+          </div>
+          <div class="context-item">
+            <span class="context-label">Session Best</span>
+            <span class="context-value time" id="sessionBestDelta">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Environment -->
+      <div class="card">
+        <h2 class="card-title">Environment</h2>
+        <div class="environment-section">
+          <div class="env-item">
+            <span class="env-label">Track Temp</span>
+            <span class="env-value" id="trackTemp">— °C</span>
+          </div>
+          <div class="env-item">
+            <span class="env-label">Air Temp</span>
+            <span class="env-value" id="airTemp">— °C</span>
+          </div>
+          <div class="env-item">
+            <span class="env-label">Surface</span>
+            <span class="env-value" id="surfaceWetness">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // Utility Functions
+    // ==========================================
+
+    function safeGet(obj, path, defaultValue = null) {
+      const keys = path.split('.');
+      let result = obj;
+      for (const key of keys) {
+        if (result == null || typeof result !== 'object') {
+          return defaultValue;
+        }
+        result = result[key];
+      }
+      return result !== undefined && result !== null ? result : defaultValue;
+    }
+
+    function formatNumber(value, decimals = 0) {
+      if (value == null || isNaN(value)) return '—';
+      return Number(value).toFixed(decimals);
+    }
+
+    function formatTime(seconds) {
+      if (seconds == null || isNaN(seconds) || seconds < 0) return '—';
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toFixed(3).padStart(6, '0')}`;
+    }
+
+    function formatDelta(seconds, isValid) {
+      if (seconds == null || isNaN(seconds) || !isValid) return '—';
+      const sign = seconds >= 0 ? '+' : '';
+      return `${sign}${seconds.toFixed(3)}`;
+    }
+
+    function formatDistance(meters) {
+      if (meters == null || isNaN(meters)) return '—';
+      if (meters >= 1000) {
+        return `${(meters / 1000).toFixed(2)} km`;
+      }
+      return `${Math.round(meters)} m`;
+    }
+
+    function formatSessionTime(seconds) {
+      if (seconds == null || isNaN(seconds) || seconds < 0) return '—';
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      if (hrs > 0) {
+        return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+      return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function getGearDisplay(gear) {
+      if (gear == null) return 'N';
+      if (gear === 0) return 'N';
+      if (gear === -1) return 'R';
+      return String(gear);
+    }
+
+    function getTempClass(tempC) {
+      if (tempC == null || isNaN(tempC)) return 'optimal';
+      if (tempC < 70) return 'cold';
+      if (tempC < 100) return 'optimal';
+      if (tempC < 120) return 'hot';
+      return 'critical';
+    }
+
+    function averageTireTemp(tireData) {
+      if (!tireData || !tireData.surface_temp_c) return null;
+      const temps = tireData.surface_temp_c;
+      const left = safeGet(temps, 'left_c');
+      const center = safeGet(temps, 'center_c');
+      const right = safeGet(temps, 'right_c');
+      const validTemps = [left, center, right].filter(t => t != null && !isNaN(t));
+      if (validTemps.length === 0) return null;
+      return validTemps.reduce((a, b) => a + b, 0) / validTemps.length;
+    }
+
+    function getSurfaceWetnessText(value) {
+      if (value == null) return '—';
+      if (value === 0 || value === 'dry') return 'Dry';
+      if (typeof value === 'number') {
+        if (value < 0.3) return 'Damp';
+        if (value < 0.7) return 'Wet';
+        return 'Soaked';
+      }
+      return String(value);
+    }
+
+    // ==========================================
+    // DOM Update Functions
+    // ==========================================
+
+    function updateElement(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    function updateElementClass(id, removeClass, addClass) {
+      const el = document.getElementById(id);
+      if (el) {
+        if (removeClass) el.classList.remove(removeClass);
+        if (addClass) el.classList.add(addClass);
+      }
+    }
+
+    function setBarWidth(id, percent) {
+      const el = document.getElementById(id);
+      if (el) el.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+    }
+
+    function updateHeader(data) {
+      updateElement('source', safeGet(data, 'source', '—'));
+      updateElement('sessionPhase', safeGet(data, 'session.session_phase', '—'));
+      updateElement('currentLap', safeGet(data, 'lap.current_lap', '—'));
+      updateElement('overallPosition', `P${safeGet(data, 'race.overall_position', '—')}`);
+      updateElement('classPosition', `P${safeGet(data, 'race.class_position', '—')}`);
+    }
+
+    function updateHeroMetrics(data) {
+      // Speed
+      const speed = safeGet(data, 'powertrain.vehicle_speed_kph');
+      updateElement('speed', formatNumber(speed, 0));
+
+      // Gear
+      const gear = safeGet(data, 'powertrain.gear');
+      updateElement('gear', getGearDisplay(gear));
+
+      // Delta to best
+      const delta = safeGet(data, 'lap.delta_to_best_lap_s');
+      const deltaValid = safeGet(data, 'lap.delta_to_best_lap_valid', true);
+      const deltaEl = document.getElementById('delta');
+      if (deltaEl) {
+        deltaEl.textContent = formatDelta(delta, deltaValid);
+        deltaEl.classList.remove('positive', 'negative');
+        if (delta != null && deltaValid) {
+          deltaEl.classList.add(delta <= 0 ? 'positive' : 'negative');
+        }
+      }
+
+      // Fuel
+      const fuel = safeGet(data, 'powertrain.fuel_remaining_l');
+      updateElement('fuel', formatNumber(fuel, 1));
+    }
+
+    function updateDriverInputs(data) {
+      // Throttle
+      const throttle = (safeGet(data, 'inputs.throttle_ratio', 0) || 0) * 100;
+      setBarWidth('throttleBar', throttle);
+      updateElement('throttleValue', `${Math.round(throttle)}%`);
+
+      // Brake
+      const brake = (safeGet(data, 'inputs.brake_ratio', 0) || 0) * 100;
+      setBarWidth('brakeBar', brake);
+      updateElement('brakeValue', `${Math.round(brake)}%`);
+
+      // RPM
+      const rpm = safeGet(data, 'powertrain.engine_speed_rpm', 0) || 0;
+      const maxRpm = 10000; // Approximate max for display
+      const rpmPercent = (rpm / maxRpm) * 100;
+      setBarWidth('rpmBar', rpmPercent);
+      updateElement('rpmValue', formatNumber(rpm, 0));
+
+      // Steering
+      const steeringRad = safeGet(data, 'inputs.steering_angle_rad', 0) || 0;
+      const steeringDeg = (steeringRad * 180) / Math.PI;
+      const maxSteering = 540; // Max steering lock degrees
+      const steeringPercent = 50 - (steeringDeg / maxSteering) * 50;
+      const steeringEl = document.getElementById('steeringIndicator');
+      if (steeringEl) {
+        steeringEl.style.left = `${Math.min(95, Math.max(5, steeringPercent))}%`;
+      }
+      updateElement('steeringValue', `${Math.round(steeringDeg)}°`);
+    }
+
+    function updateRaceContext(data) {
+      // Gap ahead/behind
+      const gapAhead = safeGet(data, 'race.distance_ahead_m');
+      const gapBehind = safeGet(data, 'race.distance_behind_m');
+      updateElement('gapAhead', formatDistance(gapAhead));
+      updateElement('gapBehind', formatDistance(gapBehind));
+
+      // Pit status
+      const isOnPitRoad = safeGet(data, 'session.is_on_pit_road', false);
+      const isInGarage = safeGet(data, 'session.is_in_garage', false);
+      const pitStatusEl = document.getElementById('pitStatus');
+      if (pitStatusEl) {
+        if (isInGarage) {
+          pitStatusEl.textContent = 'In Garage';
+          pitStatusEl.classList.add('pit-active');
+        } else if (isOnPitRoad) {
+          pitStatusEl.textContent = 'Pit Lane';
+          pitStatusEl.classList.add('pit-active');
+        } else {
+          pitStatusEl.textContent = 'On Track';
+          pitStatusEl.classList.remove('pit-active');
+        }
+      }
+
+      // Time remaining
+      const timeRemaining = safeGet(data, 'session.session_time_remaining_s');
+      updateElement('timeRemaining', formatSessionTime(timeRemaining));
+    }
+
+    function updateTires(data) {
+      const tires = safeGet(data, 'tires', {});
+      
+      // Left Front
+      const lfPressure = safeGet(tires, 'left_front.live_pressure_kpa');
+      const lfTemp = averageTireTemp(safeGet(tires, 'left_front'));
+      updateElement('tireLfPressure', formatNumber(lfPressure, 0));
+      const lfTempEl = document.getElementById('tireLfTemp');
+      if (lfTempEl) {
+        lfTempEl.textContent = lfTemp != null ? `${formatNumber(lfTemp, 0)} °C` : '— °C';
+        lfTempEl.className = `tire-temp ${getTempClass(lfTemp)}`;
+      }
+
+      // Right Front
+      const rfPressure = safeGet(tires, 'right_front.live_pressure_kpa');
+      const rfTemp = averageTireTemp(safeGet(tires, 'right_front'));
+      updateElement('tireRfPressure', formatNumber(rfPressure, 0));
+      const rfTempEl = document.getElementById('tireRfTemp');
+      if (rfTempEl) {
+        rfTempEl.textContent = rfTemp != null ? `${formatNumber(rfTemp, 0)} °C` : '— °C';
+        rfTempEl.className = `tire-temp ${getTempClass(rfTemp)}`;
+      }
+
+      // Left Rear
+      const lrPressure = safeGet(tires, 'left_rear.live_pressure_kpa');
+      const lrTemp = averageTireTemp(safeGet(tires, 'left_rear'));
+      updateElement('tireLrPressure', formatNumber(lrPressure, 0));
+      const lrTempEl = document.getElementById('tireLrTemp');
+      if (lrTempEl) {
+        lrTempEl.textContent = lrTemp != null ? `${formatNumber(lrTemp, 0)} °C` : '— °C';
+        lrTempEl.className = `tire-temp ${getTempClass(lrTemp)}`;
+      }
+
+      // Right Rear
+      const rrPressure = safeGet(tires, 'right_rear.live_pressure_kpa');
+      const rrTemp = averageTireTemp(safeGet(tires, 'right_rear'));
+      updateElement('tireRrPressure', formatNumber(rrPressure, 0));
+      const rrTempEl = document.getElementById('tireRrTemp');
+      if (rrTempEl) {
+        rrTempEl.textContent = rrTemp != null ? `${formatNumber(rrTemp, 0)} °C` : '— °C';
+        rrTempEl.className = `tire-temp ${getTempClass(rrTemp)}`;
+      }
+    }
+
+    function updateLapTimes(data) {
+      updateElement('currentLapTime', formatTime(safeGet(data, 'lap.current_lap_time_s')));
+      updateElement('lastLapTime', formatTime(safeGet(data, 'lap.last_lap_time_s')));
+      updateElement('bestLapTime', formatTime(safeGet(data, 'lap.best_lap_time_s')));
+      
+      const sessionDelta = safeGet(data, 'lap.delta_to_session_best_lap_s');
+      const sessionDeltaValid = safeGet(data, 'lap.delta_to_session_best_lap_valid', true);
+      updateElement('sessionBestDelta', formatDelta(sessionDelta, sessionDeltaValid));
+    }
+
+    function updateEnvironment(data) {
+      const trackTemp = safeGet(data, 'environment.track_temp_c');
+      const airTemp = safeGet(data, 'environment.air_temp_c');
+      const wetness = safeGet(data, 'environment.surface_wetness');
+      
+      updateElement('trackTemp', trackTemp != null ? `${formatNumber(trackTemp, 0)} °C` : '— °C');
+      updateElement('airTemp', airTemp != null ? `${formatNumber(airTemp, 0)} °C` : '— °C');
+      updateElement('surfaceWetness', getSurfaceWetnessText(wetness));
+    }
+
+    function updateTrackMap(data) {
+      const container = document.getElementById('trackMapContainer');
+      const trackMap = safeGet(data, 'track_map');
+      const cars = safeGet(trackMap, 'cars', []);
+      const playerIndex = safeGet(trackMap, 'player_car_index');
+
+      if (!cars || cars.length === 0) {
+        container.innerHTML = '<span class="track-empty">Track map unavailable</span>';
+        return;
+      }
+
+      const size = 220;
+      const center = size / 2;
+      const radius = 85;
+      const trackWidth = 24;
+
+      let svg = `
+        <svg class="track-map-svg" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+          <!-- Track background -->
+          <circle cx="${center}" cy="${center}" r="${radius}" 
+                  fill="none" 
+                  stroke="#2a2b30" 
+                  stroke-width="${trackWidth}" />
+          <!-- Track surface -->
+          <circle cx="${center}" cy="${center}" r="${radius}" 
+                  fill="none" 
+                  stroke="#3a3b40" 
+                  stroke-width="${trackWidth - 4}" />
+          <!-- Start/Finish line -->
+          <line x1="${center}" y1="${center - radius - trackWidth/2}" 
+                x2="${center}" y2="${center - radius + trackWidth/2}" 
+                stroke="#ffffff" stroke-width="3" />
+      `;
+
+      // Draw cars
+      cars.forEach(car => {
+        const lapRatio = safeGet(car, 'lap_distance_ratio', 0);
+        const carIndex = safeGet(car, 'car_index');
+        const isOnPit = safeGet(car, 'is_on_pit_road', false);
+        const isPlayer = carIndex === playerIndex;
+
+        // Convert lap ratio to angle (0 = top, going clockwise)
+        const angle = (lapRatio * 2 * Math.PI) - (Math.PI / 2);
+        const x = center + radius * Math.cos(angle);
+        const y = center + radius * Math.sin(angle);
+
+        let color, dotRadius, glow;
+        if (isPlayer) {
+          color = '#22c55e';
+          dotRadius = 8;
+          glow = `<circle cx="${x}" cy="${y}" r="14" fill="rgba(34, 197, 94, 0.3)" />`;
+        } else if (isOnPit) {
+          color = '#eab308';
+          dotRadius = 5;
+          glow = '';
+        } else {
+          color = '#64748b';
+          dotRadius = 5;
+          glow = '';
+        }
+
+        svg += glow;
+        svg += `<circle cx="${x}" cy="${y}" r="${dotRadius}" fill="${color}" />`;
+      });
+
+      svg += '</svg>';
+      container.innerHTML = svg;
+    }
+
+    // ==========================================
+    // Main Update Function
+    // ==========================================
+
+    function updateDashboard(data) {
+      if (!data) return;
+      
+      updateHeader(data);
+      updateHeroMetrics(data);
+      updateDriverInputs(data);
+      updateRaceContext(data);
+      updateTires(data);
+      updateLapTimes(data);
+      updateEnvironment(data);
+      updateTrackMap(data);
+    }
+
+    // ==========================================
+    // WebSocket Connection
+    // ==========================================
+
+    let ws = null;
+    let reconnectTimeout = null;
+
+    function setConnectionStatus(status) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('connectionText');
+
+      dot.classList.remove('connected', 'error');
+      
+      switch (status) {
+        case 'connected':
+          dot.classList.add('connected');
+          text.textContent = 'Connected';
+          break;
+        case 'error':
+          dot.classList.add('error');
+          text.textContent = 'Connection Error';
+          break;
+        default:
+          text.textContent = 'Disconnected';
+      }
+    }
+
+    function buildWebSocketUrl() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}/ws`;
+      //return 'ws://localhost:8000/ws';
+    }
+
+    function connect() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+
+      const url = buildWebSocketUrl();
+      console.log('Connecting to WebSocket:', url);
+
+      try {
+        ws = new WebSocket(url);
+
+        ws.onopen = function() {
+          console.log('WebSocket connected');
+          setConnectionStatus('connected');
+          if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+          }
+        };
+
+        ws.onmessage = function(event) {
+          try {
+            const data = JSON.parse(event.data);
+            updateDashboard(data);
+          } catch (e) {
+            console.error('Failed to parse message:', e);
+          }
+        };
+
+        ws.onerror = function(error) {
+          console.error('WebSocket error:', error);
+          setConnectionStatus('error');
+        };
+
+        ws.onclose = function() {
+          console.log('WebSocket closed');
+          setConnectionStatus('disconnected');
+          scheduleReconnect();
+        };
+
+      } catch (e) {
+        console.error('Failed to create WebSocket:', e);
+        setConnectionStatus('error');
+        scheduleReconnect();
+      }
+    }
+
+    function scheduleReconnect() {
+      if (reconnectTimeout) return;
+      reconnectTimeout = setTimeout(function() {
+        reconnectTimeout = null;
+        connect();
+      }, 3000);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      setConnectionStatus('disconnected');
+      connect();
+    });
+  </script>
+</body>
+</html>
