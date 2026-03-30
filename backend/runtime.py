@@ -7,12 +7,12 @@ from telemetry.administrator import TelemetryStateAdministrator
 from telemetry.contracts import TelemetryReceiver
 
 
-class RacerBackendRuntime:
+class DriverBackendRuntime:
     def __init__(
         self,
         telemetry_source: TelemetryReceiver,
         publish_callback: Callable[[dict], Awaitable[None]] | None = None,
-        tick_hz: float = 60,
+        tick_hz: float = 120,
     ):
         self._telemetry_source = telemetry_source
         self._publish_callback = publish_callback

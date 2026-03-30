@@ -8,8 +8,9 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from backend.runtime import RacerBackendRuntime
+from backend.runtime import DriverBackendRuntime
 from backend.websocket import WebSocketConnectionManager
+from telemetry.models.unified_snapshot import DriverInputs
 from telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 from telemetry.sims.iracing.iracing_reader import IRacingReader
 
@@ -77,7 +78,7 @@ def build_telemetry_source(config: StartupConfig):
         return IRacingReader(config.file)
     return IRacingReceiver()
 
-runtime: RacerBackendRuntime | None = None
+runtime: DriverBackendRuntime | None = None
 manager = WebSocketConnectionManager()
 
 
@@ -127,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         active_parser = build_telemetry_source(config)
 
         global runtime
-        runtime = RacerBackendRuntime(
+        runtime = DriverBackendRuntime(
             telemetry_source=active_parser,
             publish_callback=manager.broadcast,
         )
