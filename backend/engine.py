@@ -9,32 +9,13 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.runtime import RacerBackendRuntime
+from backend.websocket import WebSocketConnectionManager
 from telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 from telemetry.sims.iracing.iracing_reader import IRacingReader
 
 runtime: RacerBackendRuntime | None = None
+manager = WebSocketConnectionManager()
 
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_json(message)
-            except Exception:
-                self.disconnect(connection)
-
-
-manager = ConnectionManager()
 # Adjust this path to wherever your frontend files live.
 # Example:
 # backend/
@@ -43,7 +24,6 @@ manager = ConnectionManager()
 #   index.html
 #   hud.js
 #   telemetry-types.js
-from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 if not FRONTEND_DIR.exists():
@@ -61,6 +41,7 @@ async def lifespan(fastapi_app: FastAPI):
     finally:
         await runtime.stop()
         print("Backend Engine cleanly shut down.")
+
 
 app = FastAPI(lifespan=lifespan)
 
@@ -87,6 +68,7 @@ async def websocket_endpoint(websocket: WebSocket):
 def health():
     return {"status": "ok"}
 
+
 @app.get("/api/state")
 def get_current_state():
     if runtime is None:
@@ -96,10 +78,23 @@ def get_current_state():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Telemetry Backend Engine")
-    parser.add_argument("--mode", choices=["live", "replay", "analyze"], default="live",
-                        help="Operating mode")
-    parser.add_argument("--file", type=str, help="Path to the telemetry file (required for replay/analyze)")
-    parser.add_argument("--port", type=int, default=8000, help="Port to run the API on")
+    parser.add_argument(
+        "--mode",
+        choices=["live", "replay", "analyze"],
+        default="live",
+        help="Operating mode",
+    )
+    parser.add_argument(
+        "--file",
+        type=str,
+        help="Path to the telemetry file (required for replay/analyze)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to run the API on",
+    )
 
     args = parser.parse_args()
     run_mode = args.mode
@@ -109,7 +104,6 @@ if __name__ == "__main__":
             print("Error: --file argument is required when running in replay or analyze mode.")
             sys.exit(1)
         active_parser = IRacingReader(args.file)
-
     else:
         active_parser = IRacingReceiver()
 
