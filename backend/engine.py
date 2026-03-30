@@ -2,12 +2,9 @@ import argparse
 import sys
 import traceback
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from backend.runtime import RacerBackendRuntime
 from backend.websocket import WebSocketConnectionManager
@@ -16,19 +13,6 @@ from telemetry.sims.iracing.iracing_reader import IRacingReader
 
 runtime: RacerBackendRuntime | None = None
 manager = WebSocketConnectionManager()
-
-# Adjust this path to wherever your frontend files live.
-# Example:
-# backend/
-#   engine.py
-# frontend/
-#   index.html
-#   hud.js
-#   telemetry-types.js
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-FRONTEND_DIR = PROJECT_ROOT / "frontend"
-if not FRONTEND_DIR.exists():
-    raise RuntimeError(f"Frontend directory does not exist: {FRONTEND_DIR}")
 
 
 @asynccontextmanager
@@ -45,15 +29,6 @@ async def lifespan(fastapi_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-# Serve JS/CSS/static assets from /static
-app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
-
-
-@app.get("/")
-def get_index():
-    return FileResponse(FRONTEND_DIR / "index.html")
-
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
