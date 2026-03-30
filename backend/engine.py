@@ -1,5 +1,6 @@
 import argparse
 import sys
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -66,7 +67,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    if runtime is None:
+        return {"status": "not_configured"}
+
+    return runtime.get_status()
 
 
 @app.get("/api/state")
@@ -107,9 +111,14 @@ if __name__ == "__main__":
     else:
         active_parser = IRacingReceiver()
 
-    runtime = RacerBackendRuntime(
-        telemetry_source=active_parser,
-        publish_callback=manager.broadcast,
-    )
+    try:
+        runtime = RacerBackendRuntime(
+            telemetry_source=active_parser,
+            publish_callback=manager.broadcast,
+        )
 
-    uvicorn.run(app, host="0.0.0.0", port=args.port)
+        uvicorn.run(app, host="0.0.0.0", port=args.port)
+    except Exception as exc:
+        print(f"Backend startup failed: {exc}", file=sys.stderr)
+        traceback.print_exc()
+        sys.exit(1)
