@@ -17,7 +17,8 @@ class IRacingReader(IRacingBaseParser):
                 self.connected = True
                 print(f"Loaded {self.total_ticks} frames from .ibt file.")
             except Exception as e:
-                print(f"Could not load .ibt file. Error: {e}")
+                print(f"Failed to load replay file. Exception:{e}", e)
+                raise RuntimeError(f"Could not load .ibt file: {self.file_path}") from e
 
     def _get(self, name: str, default=None):
         try:
