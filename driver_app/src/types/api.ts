@@ -16,4 +16,4 @@ export type SidecarProcessState = {
   pid: number | null;
   exitCode: number | null;
   lastError: string | null;
-
+}
