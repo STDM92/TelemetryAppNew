@@ -324,6 +324,7 @@
       bottom: 0;
       width: 2px;
       background-color: var(--border-color);
+      transform: translateX(-50%);
     }
 
     .steering-indicator {
@@ -875,8 +876,8 @@
       // Steering
       const steeringRad = safeGet(data, 'inputs.steering_angle_rad', 0) || 0;
       const steeringDeg = (steeringRad * 180) / Math.PI;
-      const maxSteering = 450; // Max steering lock degrees
-      const steeringPercent = 50 + (steeringDeg / maxSteering) * 50;
+      const maxSteering = 540; // Max steering lock degrees
+      const steeringPercent = 50 - (steeringDeg / maxSteering) * 50;
       const steeringEl = document.getElementById('steeringIndicator');
       if (steeringEl) {
         steeringEl.style.left = `${Math.min(95, Math.max(5, steeringPercent))}%`;
@@ -1070,6 +1071,27 @@
     let ws = null;
     let reconnectTimeout = null;
 
+    window.__uiFrameMetrics__ = {
+      totalFramesReceived: 0
+    };
+
+    function getAppConfig() {
+      return window.__APP_CONFIG__ || null;
+    }
+
+    function getConfiguredBackendWebSocketUrl() {
+      const config = getAppConfig();
+      if (config && typeof config.backendWebSocketUrl === 'string' && config.backendWebSocketUrl) {
+        return config.backendWebSocketUrl;
+      }
+      return null;
+    }
+
+    window.__uiFrameMetrics__ = {
+      totalFramesReceived: 0,
+      startedAtMs: performance.now()
+    };
+
     function setConnectionStatus(status) {
       const dot = document.getElementById('statusDot');
       const text = document.getElementById('connectionText');
@@ -1091,8 +1113,11 @@
     }
 
     function buildWebSocketUrl() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${protocol}//${window.location.host}/ws`;
+      const configuredUrl = getConfiguredBackendWebSocketUrl();
+      if (!configuredUrl) {
+        throw new Error('Missing window.__APP_CONFIG__.backendWebSocketUrl');
+      }
+      return configuredUrl;
     }
 
     function connect() {
@@ -1118,6 +1143,9 @@
         ws.onmessage = function(event) {
           try {
             const data = JSON.parse(event.data);
+            if (window.__uiFrameMetrics__) {
+              window.__uiFrameMetrics__.totalFramesReceived += 1;
+            }
             updateDashboard(data);
           } catch (e) {
             console.error('Failed to parse message:', e);

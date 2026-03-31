@@ -2,7 +2,6 @@ import subprocess
 import sys
 import os
 import time
-import webbrowser
 from pathlib import Path
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
@@ -87,11 +86,6 @@ def main():
     print(f"-> Starting Backend Engine in {mode.upper()} mode...")
     backend = subprocess.Popen(backend_cmd, env=current_env)
 
-    if mode in ["live", "replay"]:
-        frontend_url = f"http://localhost:{port}/"
-    else:
-        frontend_url = f"http://localhost:{port}/analyzer"
-
     readiness_url = f"http://localhost:{port}/health"
     print("-> Waiting for backend to become ready...")
 
@@ -103,8 +97,8 @@ def main():
 
         return
 
-    print(f"-> Opening {frontend_url} in browser...")
-    webbrowser.open(frontend_url)
+    print(f"-> Backend is ready at {readiness_url}")
+    print("-> Launcher is operating in backend-only dev mode. No browser will be opened.")
 
     try:
         backend.wait()

@@ -7,7 +7,7 @@ from telemetry.administrator import TelemetryStateAdministrator
 from telemetry.contracts import TelemetryReceiver
 
 
-class RacerBackendRuntime:
+class DriverBackendRuntime:
     def __init__(
         self,
         telemetry_source: TelemetryReceiver,
