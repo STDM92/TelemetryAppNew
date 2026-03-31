@@ -218,34 +218,17 @@ class BackendProcessOwner:
     def render_index_html(self) -> str:
         original = self.ui_file.read_text(encoding="utf-8")
         backend_origin_json = json.dumps(self.backend_origin)
+        backend_ws_url_json = json.dumps(self.backend_origin.replace("http", "ws", 1) + "/ws")
 
         overlay = f"""
 <script>
-window.__MOCK_BACKEND_ORIGIN__ = {backend_origin_json};
+window.__APP_CONFIG__ = {{
+  backendOrigin: {backend_origin_json},
+  backendWebSocketUrl: {backend_ws_url_json},
+}};
 
 (function() {{
-  const mockBackendWsUrl = (window.__MOCK_BACKEND_ORIGIN__ || `${{window.location.protocol}}//${{window.location.host}}`).replace(/^http/, 'ws') + '/ws';
-
-  window.buildWebSocketUrl = function() {{
-    return mockBackendWsUrl;
-  }};
-
-  const OriginalWebSocket = window.WebSocket;
-  window.WebSocket = function(url, protocols) {{
-    let rewrittenUrl = url;
-    if (typeof url === 'string' && /\\/ws(?:\\?|$)/.test(url)) {{
-      rewrittenUrl = mockBackendWsUrl;
-      console.log('Mock host rewrote WebSocket URL:', url, '->', rewrittenUrl);
-    }}
-
-    return protocols === undefined
-      ? new OriginalWebSocket(rewrittenUrl)
-      : new OriginalWebSocket(rewrittenUrl, protocols);
-  }};
-  window.WebSocket.prototype = OriginalWebSocket.prototype;
-  Object.setPrototypeOf(window.WebSocket, OriginalWebSocket);
-
-  console.log('Mock host override active:', mockBackendWsUrl);
+  console.log('Mock host config injected:', window.__APP_CONFIG__);
   const style = document.createElement('style');
   style.textContent = `
     .mock-host-panel {{
@@ -286,6 +269,9 @@ window.__MOCK_BACKEND_ORIGIN__ = {backend_origin_json};
       <div class="mock-host-key">Health</div><div class="mock-host-value" id="mockHostHealth">—</div>
       <div class="mock-host-key">Error</div><div class="mock-host-value" id="mockHostError">—</div>
       <div class="mock-host-key">State</div><div class="mock-host-value" id="mockHostState">—</div>
+      <div class="mock-host-key">UI Frames</div><div class="mock-host-value" id="mockHostUiFrames">—</div>
+      <div class="mock-host-key">UI FPS</div><div class="mock-host-value" id="mockHostUiFps">—</div>
+      <div class="mock-host-key">UI Avg FPS</div><div class="mock-host-value" id="mockHostUiAvgFps">—</div>
     </div>
     <div class="mock-host-log" id="mockHostLog">Waiting for backend output…</div>
   `;
@@ -299,17 +285,41 @@ window.__MOCK_BACKEND_ORIGIN__ = {backend_origin_json};
     if (klass) el.classList.add(klass);
   }}
 
+  let lastUiFrameTotal = 0;
+  let lastUiFrameSampleAt = performance.now();
+
   async function pollHostStatus() {{
     try {{
       const response = await fetch('/host/status', {{ cache: 'no-store' }});
       const status = await response.json();
-      setText('mockHostBackend', window.__MOCK_BACKEND_ORIGIN__);
+      setText('mockHostBackend', window.__APP_CONFIG__.backendOrigin);
       setText('mockHostReady', String(status.backend_ready), status.backend_ready ? 'ok' : 'bad');
       setText('mockHostPid', status.backend_pid == null ? '—' : String(status.backend_pid));
       setText('mockHostExit', status.backend_exit_code == null ? 'running' : String(status.backend_exit_code), status.backend_exit_code == null ? 'ok' : 'bad');
       setText('mockHostHealth', status.backend_health ? JSON.stringify(status.backend_health) : '—');
       setText('mockHostError', status.backend_health_error || (status.backend_health && status.backend_health.last_error) || '—', (status.backend_health_error || (status.backend_health && status.backend_health.last_error)) ? 'bad' : 'ok');
       setText('mockHostState', status.backend_state_excerpt ? JSON.stringify(status.backend_state_excerpt) : '—');
+
+      const uiMetrics = window.__uiFrameMetrics__ || null;
+      const uiFrameTotal = uiMetrics && typeof uiMetrics.totalFramesReceived === 'number'
+        ? uiMetrics.totalFramesReceived
+        : 0;
+      const now = performance.now();
+      const uiStartedAtMs = uiMetrics && typeof uiMetrics.startedAtMs === 'number'
+        ? uiMetrics.startedAtMs
+        : now;
+      const elapsedSeconds = Math.max((now - lastUiFrameSampleAt) / 1000, 0.001);
+      const totalElapsedSeconds = Math.max((now - uiStartedAtMs) / 1000, 0.001);
+      const uiFps = (uiFrameTotal - lastUiFrameTotal) / elapsedSeconds;
+      const uiAvgFps = uiFrameTotal / totalElapsedSeconds;
+
+      setText('mockHostUiFrames', String(uiFrameTotal));
+      setText('mockHostUiFps', uiFps.toFixed(1));
+      setText('mockHostUiAvgFps', uiAvgFps.toFixed(1));
+
+      lastUiFrameTotal = uiFrameTotal;
+      lastUiFrameSampleAt = now;
+
       setText('mockHostLog', (status.log_tail || []).slice(-12).join('\\n') || 'No backend output yet.');
     }} catch (error) {{
       setText('mockHostError', String(error), 'bad');
