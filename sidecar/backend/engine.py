@@ -120,6 +120,12 @@ def get_current_state():
         return None
     return runtime.get_current_state()
 
+@app.get("/status")
+def get_current_state():
+    if runtime is None:
+        return {"status": "not_configured"}
+    return runtime.get_status()
+
 
 def main(argv: list[str] | None = None) -> int:
     try:
