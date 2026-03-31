@@ -181,7 +181,7 @@ Do not:
 ## Minimal Template
 
 ```python
-from telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
+from sidecar.telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
 
 
 class ExampleReceiver:

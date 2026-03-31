@@ -1,5 +1,5 @@
-from telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
-from telemetry.models.unified_state import UnifiedState
+from sidecar.telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
+from sidecar.telemetry.models.unified_state import UnifiedState
 
 
 class TelemetryStateAdministrator:

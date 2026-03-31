@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
+from sidecar.telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
 
 
 class TelemetryReceiver(Protocol):

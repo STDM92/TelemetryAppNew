@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 import irsdk
 
-from telemetry.models.unified_snapshot import (
+from sidecar.telemetry.models.unified_snapshot import (
     AngularRate,
     BrakeCornerData,
     BrakeSystemData,

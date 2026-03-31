@@ -1,4 +1,4 @@
-from telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
+from sidecar.telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
 
 
 class ACCReceiver:

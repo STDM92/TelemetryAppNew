@@ -1,10 +1,9 @@
 import asyncio
 from dataclasses import asdict
-from traceback import format_exc
 from typing import Awaitable, Callable
 
-from telemetry.administrator import TelemetryStateAdministrator
-from telemetry.contracts import TelemetryReceiver
+from sidecar.telemetry.administrator import TelemetryStateAdministrator
+from sidecar.telemetry.contracts import TelemetryReceiver
 
 
 class DriverBackendRuntime:

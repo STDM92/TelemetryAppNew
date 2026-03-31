@@ -8,11 +8,10 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from backend.runtime import DriverBackendRuntime
-from backend.websocket import WebSocketConnectionManager
-from telemetry.models.unified_snapshot import DriverInputs
-from telemetry.sims.iracing.iracing_receiver import IRacingReceiver
-from telemetry.sims.iracing.iracing_reader import IRacingReader
+from sidecar.backend.runtime import DriverBackendRuntime
+from sidecar.backend.websocket import WebSocketConnectionManager
+from sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
+from sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
 
 
 @dataclass(frozen=True)

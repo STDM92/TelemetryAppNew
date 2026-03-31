@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import asdict, dataclass, fields, is_dataclass, field
+from dataclasses import dataclass, fields, is_dataclass, field
 
-from telemetry.models.unified_snapshot import (
+from sidecar.telemetry.models.unified_snapshot import (
     UnifiedTelemetrySnapshot,
     SessionInfo,
     LapData,
