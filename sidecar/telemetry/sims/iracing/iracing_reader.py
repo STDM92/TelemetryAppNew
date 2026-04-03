@@ -1,8 +1,13 @@
+import logging
+
 import irsdk
 from .iracing_base_parser import IRacingBaseParser
 
+logger = logging.getLogger(__name__)
+
+
 class IRacingReader(IRacingBaseParser):
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str|None):
         super().__init__()
         self.file_path = file_path
         self.ibt = irsdk.IBT()
@@ -15,9 +20,9 @@ class IRacingReader(IRacingBaseParser):
                 self.ibt.open(self.file_path)
                 self.total_ticks = self.ibt._disk_header.session_record_count
                 self.connected = True
-                print(f"Loaded {self.total_ticks} frames from .ibt file.")
+                logger.info("Loaded %s frames from .ibt file.", self.total_ticks)
             except Exception as e:
-                print(f"Failed to load replay file. Exception:{e}", e)
+                logger.exception("Failed to load replay file: %s", self.file_path)
                 raise RuntimeError(f"Could not load .ibt file: {self.file_path}") from e
 
     def _get(self, name: str, default=None):
@@ -30,7 +35,7 @@ class IRacingReader(IRacingBaseParser):
     def _pre_capture(self):
         # Loop the file if we reach the end
         if self.current_tick >= self.total_ticks:
-            print("Replay finished. Looping back to start!")
+            logger.info("Replay finished. Looping back to start.")
             self.current_tick = 0
 
     def _post_capture(self):

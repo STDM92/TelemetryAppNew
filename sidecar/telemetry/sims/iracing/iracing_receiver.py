@@ -1,5 +1,10 @@
+import logging
+
 import irsdk
 from .iracing_base_parser import IRacingBaseParser
+
+logger = logging.getLogger(__name__)
+
 
 class IRacingReceiver(IRacingBaseParser):
     def __init__(self):
@@ -10,10 +15,10 @@ class IRacingReceiver(IRacingBaseParser):
         if self.connected and not (self.ir.is_initialized and self.ir.is_connected):
             self.connected = False
             self.ir.shutdown()
-            print("iRacing disconnected.")
+            logger.info("iRacing disconnected.")
         elif not self.connected and self.ir.startup() and self.ir.is_initialized and self.ir.is_connected:
             self.connected = True
-            print("iRacing connected. Listening for telemetry...")
+            logger.info("iRacing connected. Listening for telemetry...")
 
     def _get(self, name: str, default=None):
         try:

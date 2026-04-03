@@ -1,6 +1,6 @@
 import argparse
+import logging
 import sys
-import traceback
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +13,7 @@ from sidecar.backend.runtime import DriverBackendRuntime
 from sidecar.backend.websocket import WebSocketConnectionManager
 from sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 from sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
+from sidecar.logging_config import configure_logging
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,9 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupConfig:
     return StartupConfig(mode=args.mode, file=file_path, port=args.port)
 
 
+logger = logging.getLogger(__name__)
+
+
 def build_telemetry_source(config: StartupConfig):
     if config.mode in {"replay", "analyze"}:
         return IRacingReader(config.file)
@@ -92,7 +96,7 @@ async def lifespan(fastapi_app: FastAPI):
         yield
     finally:
         await runtime.stop()
-        print("Backend Engine cleanly shut down.")
+        logger.info("Backend Engine cleanly shut down.")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -141,8 +145,18 @@ def get_current_state():
 
 def main(argv: list[str] | None = None) -> int:
     try:
+        log_file_path = configure_logging()
+        logger.info("Configured logging. log_file=%s", log_file_path)
+
         config = parse_startup_args(argv)
+        logger.info(
+            "Starting backend engine (mode=%s, port=%s, file=%s).",
+            config.mode,
+            config.port,
+            config.file,
+        )
         active_parser = build_telemetry_source(config)
+        logger.info("Telemetry source initialized: %s", type(active_parser).__name__)
 
         global runtime
         runtime = DriverBackendRuntime(
@@ -150,11 +164,11 @@ def main(argv: list[str] | None = None) -> int:
             publish_callback=manager.broadcast,
         )
 
+        logger.info("Launching HTTP server on port %s.", config.port)
         uvicorn.run(app, host="0.0.0.0", port=config.port)
         return 0
-    except Exception as exc:
-        print(f"Backend startup failed: {exc}", file=sys.stderr)
-        traceback.print_exc()
+    except Exception:
+        logger.exception("Backend startup failed.")
         return 1
 
 if __name__ == "__main__":
