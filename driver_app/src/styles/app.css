@@ -27,6 +27,32 @@ body {
   border-radius: 12px;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.field input,
+.field select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #394253;
+  background: #161b25;
+  color: #f3f4f6;
+}
+
 .process-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));

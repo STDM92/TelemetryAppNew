@@ -1,3 +1,12 @@
+export type BackendMode = "live" | "replay" | "analyze";
+
+export type AppConfig = {
+  pythonCommand: string;
+  backendPort: number;
+  backendMode: BackendMode;
+  backendFilePath: string | null;
+};
+
 export type BootstrapConfig = {
   backendBaseUrl: string;
   backendWebsocketUrl: string;

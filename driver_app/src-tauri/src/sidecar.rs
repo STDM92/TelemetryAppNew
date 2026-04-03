@@ -1,6 +1,11 @@
+use crate::config::AppConfig;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::sync::Mutex;
+
+//activate the venv via "source .venv/bin/activate"
+
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -19,7 +24,10 @@ pub struct SidecarProcessState {
     pub last_error: Option<String>,
 }
 
+
+
 pub struct SidecarManager {
+    config: AppConfig,
     child: Option<Child>,
     last_exit_code: Option<i32>,
     last_error: Option<String>,
@@ -28,16 +36,17 @@ pub struct SidecarManager {
 impl SidecarManager {
     pub fn new() -> Self {
         Self {
+            config: AppConfig::default(),
             child: None,
             last_exit_code: None,
             last_error: None,
         }
     }
 
-    pub fn get_state(&mut self) -> SidecarProcessState {
+    pub fn get_state(&mut self) -> Result<SidecarProcessState, String> {
         self.refresh_child_state();
 
-        match self.child.as_mut() {
+        let state = match self.child.as_mut() {
             Some(child) => SidecarProcessState {
                 status: SidecarProcessStatus::Running,
                 pid: Some(child.id()),
@@ -58,7 +67,9 @@ impl SidecarManager {
                     last_error: self.last_error.clone(),
                 }
             }
-        }
+        };
+
+        Ok(state)
     }
 
     pub fn start(&mut self) -> Result<(), String> {
@@ -70,17 +81,27 @@ impl SidecarManager {
 
         let repo_root = resolve_repo_root()?;
 
-        let mut command = Command::new("python");
+        let mut command = Command::new(&self.config.python_command);
         command
             .current_dir(&repo_root)
             .arg("-m")
             .arg("sidecar.backend.engine")
             .arg("--mode")
-            .arg("live")
+            .arg(&self.config.backend_mode)
             .arg("--port")
-            .arg("8000")
+            .arg(self.config.backend_port.to_string())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
+
+        if self.config.backend_mode == "replay" || self.config.backend_mode == "analyze" {
+            let file_path = self
+                .config
+                .backend_file_path
+                .as_deref()
+                .ok_or_else(|| "A file path is required for replay/analyze mode.".to_string())?;
+
+            command.arg("--file").arg(file_path);
+        }
 
         let child = command
             .spawn()
@@ -116,6 +137,10 @@ impl SidecarManager {
         self.start()
     }
 
+    pub fn update_config(&mut self, config: AppConfig) {
+        self.config = config;
+    }
+
     fn refresh_child_state(&mut self) {
         let Some(child) = self.child.as_mut() else {
             return;
@@ -134,6 +159,12 @@ impl SidecarManager {
     }
 }
 
+impl Drop for SidecarManager {
+    fn drop(&mut self) {
+        let _ = self.stop();
+    }
+}
+
 fn resolve_repo_root() -> Result<PathBuf, String> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest_dir
@@ -141,4 +172,15 @@ fn resolve_repo_root() -> Result<PathBuf, String> {
         .and_then(|p| p.parent())
         .map(PathBuf::from)
         .ok_or_else(|| "Failed to resolve repository root from src-tauri.".to_string())
+}
+
+
+
+pub fn sync_manager_config(
+    manager: &mut SidecarManager,
+    config: &Mutex<AppConfig>,
+) -> Result<(), String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    manager.update_config(config.clone());
+    Ok(())
 }
