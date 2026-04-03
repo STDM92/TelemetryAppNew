@@ -4,7 +4,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-_DEFAULT_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+_DEFAULT_FORMAT = "%(levelname)-8s | %(asctime)s | %(name)s | %(message)s"
 
 
 def configure_logging(*, logs_dir: str | Path | None = None) -> Path:

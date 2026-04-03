@@ -10,10 +10,24 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from sidecar.backend.runtime import DriverBackendRuntime
+from sidecar.logging_config import configure_logging
 from sidecar.backend.websocket import WebSocketConnectionManager
 from sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 from sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
-from sidecar.logging_config import configure_logging
+
+
+class StartupArgumentError(ValueError):
+    pass
+
+
+class StartupArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise StartupArgumentError(message)
+
+    def exit(self, status: int = 0, message: str | None = None) -> None:
+        if message:
+            self._print_message(message, sys.stderr)
+        raise SystemExit(status)
 
 
 @dataclass(frozen=True)
@@ -36,7 +50,7 @@ def _port_argument(value: str) -> int:
 
 
 def parse_startup_args(argv: list[str] | None = None) -> StartupConfig:
-    parser = argparse.ArgumentParser(description="Telemetry Backend Engine")
+    parser = StartupArgumentParser(description="Telemetry Backend Engine")
     parser.add_argument(
         "--mode",
         choices=["live", "replay", "analyze"],
@@ -81,6 +95,25 @@ def build_telemetry_source(config: StartupConfig):
     if config.mode in {"replay", "analyze"}:
         return IRacingReader(config.file)
     return IRacingReceiver()
+
+
+def configure_framework_logging() -> None:
+    """Route uvicorn/FastAPI logs through the sidecar's logging configuration."""
+    logger_names = [
+        "uvicorn",
+        "uvicorn.error",
+        "uvicorn.access",
+        "fastapi",
+    ]
+
+    for logger_name in logger_names:
+        framework_logger = logging.getLogger(logger_name)
+        framework_logger.handlers.clear()
+        framework_logger.propagate = True
+        framework_logger.setLevel(logging.INFO)
+
+
+logger = logging.getLogger(__name__)
 
 runtime: DriverBackendRuntime | None = None
 manager = WebSocketConnectionManager()
@@ -136,7 +169,7 @@ def get_current_state():
     return runtime.get_current_state()
 
 @app.get("/status")
-def get_current_state():
+def get_current_status():
     if runtime is None:
         return {"status": "not_configured"}
 
@@ -145,8 +178,9 @@ def get_current_state():
 
 def main(argv: list[str] | None = None) -> int:
     try:
-        log_file_path = configure_logging()
-        logger.info("Configured logging. log_file=%s", log_file_path)
+        log_file = configure_logging()
+        configure_framework_logging()
+        logger.info("Configured logging. log_file=%s", log_file)
 
         config = parse_startup_args(argv)
         logger.info(
@@ -165,8 +199,15 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         logger.info("Launching HTTP server on port %s.", config.port)
-        uvicorn.run(app, host="0.0.0.0", port=config.port)
+        uvicorn.run(app, host="0.0.0.0", port=config.port, log_config=None)
         return 0
+    except StartupArgumentError as exc:
+        logger.error("Backend startup configuration invalid: %s", exc)
+        return 1
+    except SystemExit as exc:
+        if exc.code not in (0, None):
+            logger.error("Backend startup exited during argument parsing. exit_code=%s", exc.code)
+        return int(exc.code) if isinstance(exc.code, int) else 1
     except Exception:
         logger.exception("Backend startup failed.")
         return 1
