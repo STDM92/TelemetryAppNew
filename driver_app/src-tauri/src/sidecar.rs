@@ -1,10 +1,16 @@
 use crate::config::AppConfig;
 use serde::Serialize;
+use std::collections::VecDeque;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use crate::debug_dump::debug_dump_json;
 
 //activate the venv via "source .venv/bin/activate"
+
+const OUTPUT_TAIL_CAPACITY: usize = 200;
 
 
 #[derive(Debug, Clone, Serialize)]
@@ -22,6 +28,12 @@ pub struct SidecarProcessState {
     pub pid: Option<u32>,
     pub exit_code: Option<i32>,
     pub last_error: Option<String>,
+    pub last_exit_reason: Option<String>,
+    pub stdout_tail: Vec<String>,
+    pub stderr_tail: Vec<String>,
+    pub waiting_for_sim: Option<bool>,
+    pub running_sim_name: Option<String>,
+    pub sim_connection_error: Option<String>,
 }
 
 
@@ -30,7 +42,11 @@ pub struct SidecarManager {
     config: AppConfig,
     child: Option<Child>,
     last_exit_code: Option<i32>,
+    last_exit_reason: Option<String>,
     last_error: Option<String>,
+    stop_requested: bool,
+    stdout_tail: Arc<Mutex<VecDeque<String>>>,
+    stderr_tail: Arc<Mutex<VecDeque<String>>>,
 }
 
 impl SidecarManager {
@@ -39,7 +55,11 @@ impl SidecarManager {
             config: AppConfig::default(),
             child: None,
             last_exit_code: None,
+            last_exit_reason: None,
             last_error: None,
+            stop_requested: false,
+            stdout_tail: Arc::new(Mutex::new(VecDeque::with_capacity(OUTPUT_TAIL_CAPACITY))),
+            stderr_tail: Arc::new(Mutex::new(VecDeque::with_capacity(OUTPUT_TAIL_CAPACITY))),
         }
     }
 
@@ -52,6 +72,12 @@ impl SidecarManager {
                 pid: Some(child.id()),
                 exit_code: None,
                 last_error: self.last_error.clone(),
+                last_exit_reason: self.last_exit_reason.clone(),
+                stdout_tail: clone_tail(&self.stdout_tail),
+                stderr_tail: clone_tail(&self.stderr_tail),
+                waiting_for_sim: None,
+                running_sim_name: None,
+                sim_connection_error: None,
             },
             None => {
                 let status = if self.last_exit_code.is_some() {
@@ -65,6 +91,12 @@ impl SidecarManager {
                     pid: None,
                     exit_code: self.last_exit_code,
                     last_error: self.last_error.clone(),
+                    last_exit_reason: self.last_exit_reason.clone(),
+                    stdout_tail: clone_tail(&self.stdout_tail),
+                    stderr_tail: clone_tail(&self.stderr_tail),
+                    waiting_for_sim: None,
+                    running_sim_name: None,
+                    sim_connection_error: None,
                 }
             }
         };
@@ -90,8 +122,8 @@ impl SidecarManager {
             .arg(&self.config.backend_mode)
             .arg("--port")
             .arg(self.config.backend_port.to_string())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         if self.config.backend_mode == "replay" || self.config.backend_mode == "analyze" {
             let file_path = self
@@ -103,12 +135,29 @@ impl SidecarManager {
             command.arg("--file").arg(file_path);
         }
 
-        let child = command
+        clear_tail(&self.stdout_tail);
+        clear_tail(&self.stderr_tail);
+
+        let mut child = command
             .spawn()
-            .map_err(|e| format!("Failed to start sidecar: {e}"))?;
+            .map_err(|e| {
+                let message = format!("Failed to start sidecar: {e}");
+                self.last_error = Some(message.clone());
+                message
+            })?;
+
+        if let Some(stdout) = child.stdout.take() {
+            spawn_output_reader(stdout, Arc::clone(&self.stdout_tail));
+        }
+
+        if let Some(stderr) = child.stderr.take() {
+            spawn_output_reader(stderr, Arc::clone(&self.stderr_tail));
+        }
 
         self.last_exit_code = None;
+        self.last_exit_reason = None;
         self.last_error = None;
+        self.stop_requested = false;
         self.child = Some(child);
         Ok(())
     }
@@ -120,6 +169,8 @@ impl SidecarManager {
             return Ok(());
         };
 
+        self.stop_requested = true;
+
         child
             .kill()
             .map_err(|e| format!("Failed to stop sidecar: {e}"))?;
@@ -129,6 +180,7 @@ impl SidecarManager {
             .map_err(|e| format!("Failed to wait for sidecar exit: {e}"))?;
 
         self.last_exit_code = status.code();
+        self.last_exit_reason = Some("stopped_by_driver_app".to_string());
         Ok(())
     }
 
@@ -149,6 +201,12 @@ impl SidecarManager {
         match child.try_wait() {
             Ok(Some(status)) => {
                 self.last_exit_code = status.code();
+                self.last_exit_reason = Some(if self.stop_requested {
+                    "stopped_by_driver_app".to_string()
+                } else {
+                    "sidecar_exited_unexpectedly".to_string()
+                });
+                self.stop_requested = false;
                 self.child = None;
             }
             Ok(None) => {}
@@ -183,4 +241,65 @@ pub fn sync_manager_config(
     let config = config.lock().map_err(|e| e.to_string())?;
     manager.update_config(config.clone());
     Ok(())
+}
+
+fn spawn_output_reader<R>(reader: R, tail: Arc<Mutex<VecDeque<String>>>)
+where
+    R: std::io::Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let buffered = BufReader::new(reader);
+
+        for line in buffered.lines() {
+            match line {
+                Ok(line) => {
+                    if should_capture_tail_line(&line) {
+                        push_tail_line(&tail, line);
+                    }
+                }
+                Err(err) => {
+                    push_tail_line(&tail, format!("<output read error: {err}>"));
+                    break;
+                }
+            }
+        }
+    });
+}
+
+fn should_capture_tail_line(line: &str) -> bool {
+    let trimmed = line.trim();
+
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    if trimmed.contains("uvicorn.access")
+        && (trimmed.contains("GET /status")
+            || trimmed.contains("GET /api/state")
+            || trimmed.contains("GET /health"))
+    {
+        return false;
+    }
+
+    true
+}
+
+fn push_tail_line(tail: &Arc<Mutex<VecDeque<String>>>, line: String) {
+    let mut guard = tail.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    if guard.len() >= OUTPUT_TAIL_CAPACITY {
+        guard.pop_front();
+    }
+
+    guard.push_back(line);
+}
+
+fn clear_tail(tail: &Arc<Mutex<VecDeque<String>>>) {
+    let mut guard = tail.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.clear();
+}
+
+fn clone_tail(tail: &Arc<Mutex<VecDeque<String>>>) -> Vec<String> {
+    let guard = tail.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.iter().cloned().collect()
 }

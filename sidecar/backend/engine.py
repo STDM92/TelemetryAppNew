@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sidecar.backend.runtime import DriverBackendRuntime
 from sidecar.logging_config import configure_logging
 from sidecar.backend.websocket import WebSocketConnectionManager
+from sidecar.telemetry.sim_detection import DetectedSim, SimKind, detect_active_sim
 from sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 from sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
 
@@ -91,10 +92,18 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupConfig:
 logger = logging.getLogger(__name__)
 
 
-def build_telemetry_source(config: StartupConfig):
-    if config.mode in {"replay", "analyze"}:
-        return IRacingReader(config.file)
-    return IRacingReceiver()
+def build_telemetry_source(config: StartupConfig, detected_sim: DetectedSim):
+    match config.mode, detected_sim.kind:
+        case ("live", SimKind.IRACING):
+            return IRacingReceiver()
+        case ("replay", SimKind.IRACING):
+            return IRacingReader(config.file)
+        case ("analyze", SimKind.IRACING):
+            return IRacingReader(config.file)
+        case _:
+            raise RuntimeError(
+                f"No telemetry source implemented for mode={config.mode} sim={detected_sim.kind.value}"
+            )
 
 
 def configure_framework_logging() -> None:
@@ -189,8 +198,20 @@ def main(argv: list[str] | None = None) -> int:
             config.port,
             config.file,
         )
-        active_parser = build_telemetry_source(config)
-        logger.info("Telemetry source initialized: %s", type(active_parser).__name__)
+
+        detected_sim = detect_active_sim(config)
+        logger.info(
+            "Active sim detected. sim_kind=%s sim_name=%s",
+            detected_sim.kind.value,
+            detected_sim.display_name,
+        )
+
+        active_parser = build_telemetry_source(config, detected_sim)
+        logger.info(
+            "Telemetry source initialized. sim=%s source=%s",
+            detected_sim.display_name,
+            type(active_parser).__name__,
+        )
 
         global runtime
         runtime = DriverBackendRuntime(
