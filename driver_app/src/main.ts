@@ -1,20 +1,16 @@
 import { getBootstrapConfig } from "./app/api/bootstrap";
+import { mountShell } from "./app/shell/ShellHome";
+import "./styles/app.css";
 
-async function main() {
-  const app = document.getElementById("app");
-  if (!app) return;
+async function main(): Promise<void> {
+  const root = document.getElementById("app");
+  if (!root) {
+    throw new Error("Missing #app root element.");
+  }
 
   const config = await getBootstrapConfig();
-
-  app.innerHTML = `
-    <main style="font-family: system-ui, sans-serif; padding: 24px; color: white; background: #111; min-height: 100vh;">
-      <h1 style="margin-top: 0;">Driver App</h1>
-      <p>Minimal driver shell placeholder.</p>
-      <pre style="padding: 12px; background: #1b1b1b; border-radius: 8px;">${JSON.stringify(config, null, 2)}</pre>
-    </main>
-  `;
+  mountShell(root, config);
 }
 
-main().catch((err) => {
-  console.error("Driver app startup failed:", err);
-});
+void main();
+

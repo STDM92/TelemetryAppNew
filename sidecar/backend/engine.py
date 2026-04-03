@@ -7,6 +7,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 from sidecar.backend.runtime import DriverBackendRuntime
 from sidecar.backend.websocket import WebSocketConnectionManager
@@ -95,6 +96,16 @@ async def lifespan(fastapi_app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -124,6 +135,7 @@ def get_current_state():
 def get_current_state():
     if runtime is None:
         return {"status": "not_configured"}
+
     return runtime.get_status()
 
 

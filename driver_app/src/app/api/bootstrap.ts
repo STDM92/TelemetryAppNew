@@ -1,13 +1,7 @@
-export type BootstrapConfig = {
-  localBackendBaseUrl: string;
-  localBackendWebSocketUrl: string;
-  environment: "development" | "production";
-};
+import { invoke } from "@tauri-apps/api/core";
+import type { BootstrapConfig } from "../../types/api";
 
 export async function getBootstrapConfig(): Promise<BootstrapConfig> {
-  return {
-    localBackendBaseUrl: "http://127.0.0.1:8000",
-    localBackendWebSocketUrl: "ws://127.0.0.1:8000/ws",
-    environment: "development"
-  };
+  return invoke<BootstrapConfig>("get_bootstrap_config");
 }
+

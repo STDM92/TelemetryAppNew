@@ -1,11 +1,13 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "Driver App",
   "version": "0.1.0",
-  "identifier": "com.example.driverapp",
+  "identifier": "com.telemetry.driverapp",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:1420"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [
@@ -18,6 +20,7 @@
     ]
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": "all"
   }
 }
