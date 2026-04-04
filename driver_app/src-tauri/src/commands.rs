@@ -1,3 +1,4 @@
+use crate::driver_logging::{log_error, log_info};
 use crate::config::{save_config, AppConfig, AppConfigUpdate, BootstrapConfig};
 use crate::sidecar::{SidecarManager, SidecarProcessState};
 use std::sync::Mutex;
@@ -32,6 +33,7 @@ pub fn start_sidecar(
 ) -> Result<SidecarProcessState, String> {
     let mut manager = sidecar.lock().map_err(|e| e.to_string())?;
     crate::sidecar::sync_manager_config(&mut manager, &config)?;
+    log_info("Start sidecar command received.");
     manager.start()?;
     manager.get_state()
 }
@@ -41,6 +43,7 @@ pub fn stop_sidecar(
     sidecar: State<'_, Mutex<SidecarManager>>,
 ) -> Result<SidecarProcessState, String> {
     let mut manager = sidecar.lock().map_err(|e| e.to_string())?;
+    log_info("Stop sidecar command received.");
     manager.stop()?;
     manager.get_state()
 }
@@ -52,6 +55,7 @@ pub fn restart_sidecar(
 ) -> Result<SidecarProcessState, String> {
     let mut manager = sidecar.lock().map_err(|e| e.to_string())?;
     crate::sidecar::sync_manager_config(&mut manager, &config)?;
+    log_info("Restart sidecar command received.");
     manager.restart()?;
     manager.get_state()
 }
@@ -63,14 +67,16 @@ pub fn update_app_config(
     config: State<'_, Mutex<AppConfig>>,
 ) -> Result<AppConfig, String> {
     let mut config = config.lock().map_err(|e| e.to_string())?;
-    config.python_command = update.python_command;
+    config.sidecar_executable_path = "sidecars/live_telemetry_sidecar/dist/live-telemetry-sidecar.exe".to_string();
     config.backend_port = update.backend_port;
-    config.backend_mode = update.backend_mode;
-    config.backend_file_path = update.backend_file_path;
 
     let updated = config.clone();
-    save_config(&app, &updated)?;
+    if let Err(err) = save_config(&app, &updated) {
+        log_error(&format!("Failed to save updated app config: {err}"));
+        return Err(err);
+    }
 
+    log_info("Updated app config via command.");
     Ok(updated)
 }
 
