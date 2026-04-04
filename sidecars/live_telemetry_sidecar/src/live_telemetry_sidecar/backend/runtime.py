@@ -21,6 +21,24 @@ class DriverBackendRuntime:
         tick_hz: float = 60,
         stale_after_s: float = 3.0,
     ):
+        """
+        Initializes the DriverBackendRuntime.
+
+        :param telemetry_source: The source of telemetry data.
+        :type telemetry_source: TelemetryReceiver
+
+        :param publish_callback: An optional async callback to publish telemetry snapshots.
+        :type publish_callback: Callable[[dict], Awaitable[None]] | None
+
+        :param active_source: The currently selected telemetry source.
+        :type active_source: SelectedTelemetrySource | None
+
+        :param tick_hz: The frequency at which to poll the telemetry source, in Hertz.
+        :type tick_hz: float
+
+        :param stale_after_s: The duration in seconds after which data is considered stale.
+        :type stale_after_s: float
+        """
         self._telemetry_source = telemetry_source
         self._publish_callback = publish_callback
         self._tick_seconds = 1 / tick_hz
@@ -37,9 +55,18 @@ class DriverBackendRuntime:
         self._last_snapshot_at: float | None = None
 
     def set_active_source(self, active_source: SelectedTelemetrySource) -> None:
+        """
+        Sets the active telemetry source.
+
+        :param active_source: The selected telemetry source to be made active.
+        :type active_source: SelectedTelemetrySource
+        """
         self._active_source = active_source
 
     async def start(self) -> None:
+        """
+        Starts the telemetry processing loop in a background task.
+        """
         if self._background_task is not None and not self._background_task.done():
             logger.debug("Runtime start requested while background task is already running.")
             return
@@ -61,6 +88,9 @@ class DriverBackendRuntime:
         self._last_snapshot_at = None
 
     async def stop(self) -> None:
+        """
+        Stops the telemetry processing loop and cancels the background task.
+        """
         if self._background_task is None:
             source_stop = getattr(self._telemetry_source, "stop", None)
             if callable(source_stop):
@@ -89,9 +119,21 @@ class DriverBackendRuntime:
             logger.info("Driver backend runtime stopped.")
 
     def get_current_state(self) -> dict | None:
+        """
+        Returns the most recent telemetry snapshot as a dictionary.
+
+        :return: The latest telemetry snapshot dictionary, or None if no snapshot has been received.
+        :rtype: dict | None
+        """
         return self._current_snapshot_dict
 
     def get_status(self) -> dict:
+        """
+        Returns the current status of the backend runtime, including stream and attachment states.
+
+        :return: A dictionary containing status information.
+        :rtype: dict
+        """
         now = time.time()
         source_attachment_state = self._get_source_attachment_state()
         stream_state = self._get_stream_state(now)
@@ -109,6 +151,12 @@ class DriverBackendRuntime:
         }
 
     def _get_source_attachment_state(self) -> str:
+        """
+        Determines the attachment state of the telemetry source.
+
+        :return: A string representing the attachment state ('none', 'waiting', or 'attached').
+        :rtype: str
+        """
         if self._active_source is None:
             return "none"
 
@@ -118,6 +166,15 @@ class DriverBackendRuntime:
         return "attached"
 
     def _get_stream_state(self, now: float) -> str:
+        """
+        Determines the state of the telemetry stream.
+
+        :param now: The current timestamp in seconds.
+        :type now: float
+
+        :return: A string representing the stream state ('failed', 'idle', 'stale', or 'streaming').
+        :rtype: str
+        """
         if self._status == "failed":
             return "failed"
 
@@ -133,6 +190,12 @@ class DriverBackendRuntime:
         return "streaming"
 
     def _on_background_task_done(self, task: asyncio.Task) -> None:
+        """
+        Callback triggered when the telemetry loop background task finishes.
+
+        :param task: The completed asyncio task.
+        :type task: asyncio.Task
+        """
         if task.cancelled():
             logger.debug("Telemetry loop task completed via cancellation.")
             return
@@ -145,6 +208,9 @@ class DriverBackendRuntime:
             logger.exception("Telemetry loop failed.")
 
     async def _telemetry_loop(self) -> None:
+        """
+        The core telemetry processing loop that captures and publishes snapshots.
+        """
         while True:
             try:
                 snapshot = self._telemetry_source.capture_snapshot()

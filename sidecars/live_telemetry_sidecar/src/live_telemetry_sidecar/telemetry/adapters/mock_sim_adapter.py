@@ -15,6 +15,12 @@ from live_telemetry_sidecar.telemetry.sims.mock.mock_receiver import MockSimRece
 
 class MockSimTelemetryAdapter:
     def __init__(self, base_url: str = "http://127.0.0.1:8766"):
+        """
+        Initializes the MockSimTelemetryAdapter.
+
+        :param base_url: The base URL of the mock simulator API.
+        :type base_url: str
+        """
         self._base_url = base_url.rstrip("/")
 
     @property
@@ -36,6 +42,15 @@ class MockSimTelemetryAdapter:
         )
 
     def probe_live(self, request: StartupRequest) -> ProbeResult:
+        """
+        Probes the mock simulator to determine if it is currently streaming.
+
+        :param request: The startup request configuration.
+        :type request: StartupRequest
+
+        :return: A ProbeResult indicating the state of the mock simulator.
+        :rtype: ProbeResult
+        """
         sim_info_url = f"{self._base_url}/sim-info"
 
         try:
@@ -73,6 +88,15 @@ class MockSimTelemetryAdapter:
         )
 
     def describe_live_source(self, probe: ProbeResult) -> SelectedTelemetrySource:
+        """
+        Describes the mock simulator live telemetry source.
+
+        :param probe: The result of a previous live probe.
+        :type probe: ProbeResult
+
+        :return: A SelectedTelemetrySource object for the mock simulator.
+        :rtype: SelectedTelemetrySource
+        """
         return SelectedTelemetrySource(
             sim_kind=probe.sim_kind,
             display_name=probe.display_name,
@@ -80,4 +104,13 @@ class MockSimTelemetryAdapter:
         )
 
     def build_live_source(self, request: StartupRequest) -> MockSimReceiver:
+        """
+        Builds a MockSimReceiver for capturing live telemetry.
+
+        :param request: The startup request configuration.
+        :type request: StartupRequest
+
+        :return: A MockSimReceiver instance.
+        :rtype: MockSimReceiver
+        """
         return MockSimReceiver(base_url=self._base_url)

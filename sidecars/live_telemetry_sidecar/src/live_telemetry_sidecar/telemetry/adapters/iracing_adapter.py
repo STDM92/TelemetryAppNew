@@ -16,6 +16,15 @@ if TYPE_CHECKING:
 
 
 def _is_windows_process_running(process_name: str) -> bool:
+    """
+    Checks if a Windows process with the given name is currently running.
+
+    :param process_name: The name of the process to check for (e.g., 'iRacingUI.exe').
+    :type process_name: str
+
+    :return: True if the process is found in the task list, False otherwise.
+    :rtype: bool
+    """
     try:
         result = subprocess.run(
             ["tasklist", "/FI", f"IMAGENAME eq {process_name}"],
@@ -51,6 +60,15 @@ class IRacingTelemetryAdapter:
         )
 
     def probe_live(self, request: StartupRequest) -> ProbeResult:
+        """
+        Probes for iRacing processes to determine if the simulator is running.
+
+        :param request: The startup request configuration.
+        :type request: StartupRequest
+
+        :return: A ProbeResult indicating if iRacing processes were detected.
+        :rtype: ProbeResult
+        """
         ui_running = _is_windows_process_running("iRacingUI.exe")
         sim_running = _is_windows_process_running("iRacingSim64DX11.exe")
 
@@ -75,6 +93,15 @@ class IRacingTelemetryAdapter:
         )
 
     def describe_live_source(self, probe: ProbeResult) -> SelectedTelemetrySource:
+        """
+        Describes the iRacing live telemetry source.
+
+        :param probe: The result of a previous live probe.
+        :type probe: ProbeResult
+
+        :return: A SelectedTelemetrySource object for iRacing.
+        :rtype: SelectedTelemetrySource
+        """
         return SelectedTelemetrySource(
             sim_kind=probe.sim_kind,
             display_name=probe.display_name,
@@ -82,6 +109,15 @@ class IRacingTelemetryAdapter:
         )
 
     def build_live_source(self, request: StartupRequest) -> "IRacingReceiver":
+        """
+        Builds an IRacingReceiver for capturing live telemetry.
+
+        :param request: The startup request configuration.
+        :type request: StartupRequest
+
+        :return: An IRacingReceiver instance.
+        :rtype: IRacingReceiver
+        """
         from live_telemetry_sidecar.telemetry.sims.iracing.iracing_receiver import (
             IRacingReceiver,
         )

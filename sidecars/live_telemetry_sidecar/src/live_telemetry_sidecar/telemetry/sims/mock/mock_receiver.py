@@ -16,6 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_dataclass_type(annotation):
+    """
+    Resolves the dataclass type from a type annotation, including Optional and Union types.
+
+    :param annotation: The type annotation to resolve.
+    :type annotation: Any
+
+    :return: The resolved dataclass type, or None if it's not a dataclass.
+    :rtype: type | None
+    """
     origin = get_origin(annotation)
 
     if origin is None:
@@ -36,6 +45,18 @@ def _resolve_dataclass_type(annotation):
 
 
 def _from_dict(dataclass_type, data):
+    """
+    Recursively converts a dictionary to a dataclass instance.
+
+    :param dataclass_type: The dataclass type to instantiate.
+    :type dataclass_type: type
+
+    :param data: The dictionary containing the data.
+    :type data: dict
+
+    :return: An instance of the dataclass.
+    :rtype: Any
+    """
     if not is_dataclass(dataclass_type):
         return data
 
@@ -64,6 +85,12 @@ def _from_dict(dataclass_type, data):
 
 class MockSimReceiver:
     def __init__(self, base_url: str = "http://127.0.0.1:8766"):
+        """
+        Initializes the MockSimReceiver.
+
+        :param base_url: The base URL of the mock simulator API.
+        :type base_url: str
+        """
         self._base_url = base_url.rstrip("/")
         self._stream_url = (
             self._base_url.replace("http://", "ws://", 1)
@@ -81,6 +108,12 @@ class MockSimReceiver:
         self._started = False
 
     def capture_snapshot(self) -> UnifiedTelemetrySnapshot | None:
+        """
+        Captures the latest telemetry snapshot received from the mock simulator stream.
+
+        :return: A UnifiedTelemetrySnapshot instance, or None if no new snapshot is available.
+        :rtype: UnifiedTelemetrySnapshot | None
+        """
         self._ensure_started()
 
         with self._lock:
@@ -96,11 +129,17 @@ class MockSimReceiver:
         return _from_dict(UnifiedTelemetrySnapshot, payload)
 
     def close(self) -> None:
+        """
+        Closes the mock sim receiver and stops the background worker thread.
+        """
         self._stop_event.set()
         if self._worker_thread is not None and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=2.0)
 
     def _ensure_started(self) -> None:
+        """
+        Ensures that the background worker thread is started.
+        """
         if self._started:
             return
 
@@ -114,12 +153,18 @@ class MockSimReceiver:
         logger.info("Started mock sim receiver thread. stream_url=%s", self._stream_url)
 
     def _run_worker_thread(self) -> None:
+        """
+        The entry point for the background worker thread, running the async event loop.
+        """
         try:
             asyncio.run(self._run_worker_async())
         except Exception:
             logger.exception("Mock sim receiver worker thread crashed.")
 
     async def _run_worker_async(self) -> None:
+        """
+        The core async logic for connecting to and receiving data from the mock sim WebSocket stream.
+        """
         while not self._stop_event.is_set():
             try:
                 logger.info("Connecting to mock sim stream. stream_url=%s", self._stream_url)

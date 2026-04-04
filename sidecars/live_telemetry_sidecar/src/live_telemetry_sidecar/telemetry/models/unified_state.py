@@ -21,6 +21,15 @@ from live_telemetry_sidecar.telemetry.models.unified_snapshot import (
 
 
 def _merge_dataclass_state(target, incoming) -> None:
+    """
+    Recursively merges fields from an incoming dataclass into a target dataclass instance.
+
+    :param target: The target dataclass instance to merge into.
+    :type target: Any
+
+    :param incoming: The incoming dataclass instance to merge from.
+    :type incoming: Any
+    """
     for f in fields(target):
         incoming_value = getattr(incoming, f.name)
         current_value = getattr(target, f.name)
@@ -54,12 +63,21 @@ class UnifiedStateData:
 
 class UnifiedState:
     def __init__(self) -> None:
+        """
+        Initializes the UnifiedState with a new UnifiedStateData instance and empty history lists.
+        """
         self.data = UnifiedStateData()
 
         self.lap_time_history_s: list[float] = []
         self.fuel_usage_per_lap_l: list[float] = []
 
     def apply_snapshot(self, snapshot: UnifiedTelemetrySnapshot) -> None:
+        """
+        Applies a telemetry snapshot to the current state, merging all telemetry modules.
+
+        :param snapshot: The incoming telemetry snapshot.
+        :type snapshot: UnifiedTelemetrySnapshot
+        """
         self.data.source = snapshot.source
         self.data.timestamp = snapshot.timestamp
 
@@ -92,6 +110,18 @@ class UnifiedState:
             )
 
     def update_lap_history(self, lap_time_s: float, fuel_used_l: float, max_items: int = 5) -> None:
+        """
+        Updates the lap history with a new lap time and fuel usage.
+
+        :param lap_time_s: The lap time in seconds.
+        :type lap_time_s: float
+
+        :param fuel_used_l: The fuel used during the lap in liters.
+        :type fuel_used_l: float
+
+        :param max_items: The maximum number of history items to keep.
+        :type max_items: int
+        """
         self.lap_time_history_s.append(lap_time_s)
         self.fuel_usage_per_lap_l.append(fuel_used_l)
 
@@ -100,6 +130,12 @@ class UnifiedState:
             self.fuel_usage_per_lap_l.pop(0)
 
     def to_snapshot(self) -> UnifiedTelemetrySnapshot:
+        """
+        Creates a deep copy of the current state as a UnifiedTelemetrySnapshot.
+
+        :return: A new UnifiedTelemetrySnapshot representing the current state.
+        :rtype: UnifiedTelemetrySnapshot
+        """
         return UnifiedTelemetrySnapshot(
             source=self.data.source,
             timestamp=self.data.timestamp,

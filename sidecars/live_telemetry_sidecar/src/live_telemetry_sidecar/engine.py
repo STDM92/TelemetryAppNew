@@ -22,9 +22,28 @@ class StartupArgumentError(ValueError):
 
 class StartupArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
+        """
+        Handles an error that occurs during argument parsing by raising a StartupArgumentError.
+
+        :param message: The error message describing the issue encountered during parsing.
+        :type message: str
+
+        :raises StartupArgumentError: Always raised with the provided error message.
+        """
         raise StartupArgumentError(message)
 
     def exit(self, status: int = 0, message: str | None = None) -> None:
+        """
+        Exits the argument parser, optionally printing a message to stderr and raising SystemExit.
+
+        :param status: The exit status code to be returned.
+        :type status: int
+
+        :param message: An optional message to be printed to stderr before exiting.
+        :type message: str | None
+
+        :raises SystemExit: Always raised with the specified status code.
+        """
         if message:
             self._print_message(message, sys.stderr)
         raise SystemExit(status)
@@ -37,6 +56,19 @@ manager = WebSocketConnectionManager()
 
 
 def _port_argument(value: str) -> int:
+    """
+    Converts a string input to an integer value representing a valid port number and validates
+    that it falls within the valid port range. Raises an error if the input is invalid.
+
+    :param value: The string input to be converted and validated as a port number.
+    :type value: str
+
+    :return: The integer value of the port, validated to be between 1 and 65535 inclusive.
+    :rtype: int
+
+    :raises argparse.ArgumentTypeError: If the input value cannot be converted to an integer
+        or if the resulting integer is outside the valid port number range (1-65535).
+    """
     try:
         port = int(value)
     except ValueError as exc:
@@ -49,6 +81,15 @@ def _port_argument(value: str) -> int:
 
 
 def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
+    """
+    Parses command-line arguments for the telemetry live backend and returns a StartupRequest.
+
+    :param argv: An optional list of command-line arguments to parse. Defaults to sys.argv.
+    :type argv: list[str] | None
+
+    :return: A StartupRequest object containing the parsed configuration.
+    :rtype: StartupRequest
+    """
     parser = StartupArgumentParser(description="Telemetry Live Backend")
     parser.add_argument(
         "--port",
@@ -63,6 +104,9 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
 
 
 def configure_framework_logging() -> None:
+    """
+    Configures logging for external frameworks (uvicorn, fastapi) to propagate to the root logger.
+    """
     logger_names = [
         "uvicorn",
         "uvicorn.error",
@@ -79,6 +123,12 @@ def configure_framework_logging() -> None:
 
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI):
+    """
+    Lifespan context manager for the FastAPI application, handling startup and shutdown.
+
+    :param fastapi_app: The FastAPI application instance.
+    :type fastapi_app: FastAPI
+    """
     if runtime is None:
         raise RuntimeError("Backend runtime has not been configured.")
 
@@ -105,6 +155,12 @@ app.add_middleware(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for telemetry data broadcasting.
+
+    :param websocket: The WebSocket connection instance.
+    :type websocket: WebSocket
+    """
     await manager.connect(websocket)
     try:
         while True:
@@ -114,6 +170,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 def _runtime_status_payload() -> dict:
+    """
+    Generates the current status payload from the backend runtime.
+
+    :return: A dictionary containing the current status of the runtime.
+    :rtype: dict
+    """
     if runtime is None:
         return {"status": "not_configured"}
 
@@ -122,16 +184,34 @@ def _runtime_status_payload() -> dict:
 
 @app.get("/health")
 def health():
+    """
+    Health check endpoint returning the current runtime status.
+
+    :return: The runtime status payload.
+    :rtype: dict
+    """
     return _runtime_status_payload()
 
 
 @app.get("/status")
 def get_current_status():
+    """
+    Status endpoint returning the current runtime status.
+
+    :return: The runtime status payload.
+    :rtype: dict
+    """
     return _runtime_status_payload()
 
 
 @app.get("/api/state")
 def get_current_state():
+    """
+    API endpoint returning the current telemetry state.
+
+    :return: The current telemetry state, or None if the runtime is not configured.
+    :rtype: dict | None
+    """
     if runtime is None:
         return None
     return runtime.get_current_state()
@@ -141,6 +221,15 @@ def get_current_state():
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Main entry point for the live telemetry sidecar.
+
+    :param argv: Optional command-line arguments.
+    :type argv: list[str] | None
+
+    :return: Exit code (0 for success, 1 for failure).
+    :rtype: int
+    """
     try:
         log_file = configure_logging()
         configure_framework_logging()

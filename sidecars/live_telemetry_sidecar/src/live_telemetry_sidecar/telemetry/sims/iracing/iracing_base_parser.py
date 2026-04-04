@@ -34,6 +34,18 @@ from live_telemetry_sidecar.telemetry.models.unified_snapshot import (
 logger = logging.getLogger(__name__)
 
 def enum_class_to_dict(enum_cls, *, overrides: dict[int, str] | None = None) -> dict[int, str]:
+    """
+    Converts an IRSDK enum class to a dictionary mapping integer values to member names.
+
+    :param enum_cls: The enum class to convert.
+    :type enum_cls: Any
+
+    :param overrides: Optional dictionary of value-to-name overrides.
+    :type overrides: dict[int, str] | None
+
+    :return: A dictionary mapping enum values to names.
+    :rtype: dict[int, str]
+    """
     result = {}
     for name, value in vars(enum_cls).items():
         if name.startswith("_"):
@@ -46,6 +58,15 @@ def enum_class_to_dict(enum_cls, *, overrides: dict[int, str] | None = None) -> 
 
 
 def bitfield_class_to_dict(bitfield_cls) -> dict[int, str]:
+    """
+    Converts an IRSDK bitfield class to a dictionary mapping bitmask values to member names.
+
+    :param bitfield_cls: The bitfield class to convert.
+    :type bitfield_cls: Any
+
+    :return: A dictionary mapping bitfield values to names.
+    :rtype: dict[int, str]
+    """
     result = {}
     for name, value in vars(bitfield_cls).items():
         if name.startswith("_"):
@@ -73,28 +94,76 @@ IRSDK_SKIES = { 0: "clear", 1: "partly_cloudy", 2: "mostly_cloudy", 3: "overcast
 
 class IRacingBaseParser:
     def __init__(self) -> None:
+        """
+        Initializes the IRacingBaseParser.
+        """
         self.connected = False
         self.source_name = "iracing" # Readers can override this to "iracing_replay"
 
     # --- ABSTRACT METHODS (Implemented by Receiver/Reader) ---
     def check_connection(self) -> None:
+        """
+        Checks if the parser is connected to an iRacing data source.
+        Must be implemented by subclasses.
+
+        :raises NotImplementedError: If not implemented by a subclass.
+        """
         raise NotImplementedError
 
     def _get(self, name: str, default: Any = None) -> Any:
+        """
+        Retrieves a raw telemetry value by name from the data source.
+        Must be implemented by subclasses.
+
+        :param name: The name of the telemetry variable to retrieve.
+        :type name: str
+
+        :param default: The default value to return if the variable is not found.
+        :type default: Any
+
+        :return: The telemetry value or the default.
+        :rtype: Any
+
+        :raises NotImplementedError: If not implemented by a subclass.
+        """
         raise NotImplementedError
 
     def _pre_capture(self) -> None:
+        """
+        Hook called before a snapshot capture begins. Can be overridden by subclasses.
+        """
         pass
 
     def _post_capture(self) -> None:
+        """
+        Hook called after a snapshot capture finishes. Can be overridden by subclasses.
+        """
         pass
 
     # --- SHARED HELPER METHODS ---
     def _get_bool(self, name: str) -> Optional[bool]:
+        """
+        Retrieves a telemetry value as a boolean.
+
+        :param name: The name of the telemetry variable.
+        :type name: str
+
+        :return: The boolean value, or None if not found.
+        :rtype: bool | None
+        """
         value = self._get(name)
         return None if value is None else bool(value)
 
     def _get_float(self, name: str) -> Optional[float]:
+        """
+        Retrieves a telemetry value as a float.
+
+        :param name: The name of the telemetry variable.
+        :type name: str
+
+        :return: The float value, or None if not found or invalid.
+        :rtype: float | None
+        """
         value = self._get(name)
         if value is None:
             return None
@@ -104,6 +173,15 @@ class IRacingBaseParser:
             return None
 
     def _get_airpressure_pa(self, name: str) -> Optional[float]:
+        """
+        Retrieves a telemetry value and converts it from inches of mercury to Pascals.
+
+        :param name: The name of the telemetry variable.
+        :type name: str
+
+        :return: The air pressure in Pascals, or None if not found.
+        :rtype: float | None
+        """
         raw_value = self._get(name)
         if raw_value is None:
             return None
@@ -113,6 +191,15 @@ class IRacingBaseParser:
             return None
 
     def _get_float_distance_ahead_behind(self, name: str) -> Optional[float]:
+        """
+        Retrieves a float telemetry value representing distance, with a specific check for iRacing's large 'no distance' value.
+
+        :param name: The name of the telemetry variable.
+        :type name: str
+
+        :return: The distance in meters, or None if not found or no distance is available.
+        :rtype: float | None
+        """
         value = self._get(name)
         if value is None:
             return None
@@ -125,6 +212,15 @@ class IRacingBaseParser:
             return None
 
     def _get_int(self, name: str) -> Optional[int]:
+        """
+        Retrieves a telemetry value as an integer.
+
+        :param name: The name of the telemetry variable.
+        :type name: str
+
+        :return: The integer value, or None if not found or invalid.
+        :rtype: int | None
+        """
         value = self._get(name)
         if value is None:
             return None
@@ -134,12 +230,33 @@ class IRacingBaseParser:
             return None
 
     def _get_session_laps_int(self, name: str) -> Optional[int]:
+        """
+        Retrieves a session laps telemetry value as an integer, treating 32767 as None (infinite).
+
+        :param name: The name of the telemetry variable.
+        :type name: str
+
+        :return: The number of laps, or None if not found or infinite.
+        :rtype: int | None
+        """
         value = self._get_int(name)
         if value is None or value == 32767:
             return None
         return value
 
     def _map_enum(self, value: Any, mapping: dict[int, str]) -> Optional[str]:
+        """
+        Maps an integer telemetry value to its corresponding enum name.
+
+        :param value: The integer value to map.
+        :type value: Any
+
+        :param mapping: A dictionary mapping integers to names.
+        :type mapping: dict[int, str]
+
+        :return: The name of the enum member, or the original value as a string.
+        :rtype: str | None
+        """
         if value is None:
             return None
         try:
@@ -148,6 +265,18 @@ class IRacingBaseParser:
             return str(value)
 
     def _decode_bitfield(self, value: Any, mapping: dict[int, str]) -> Optional[str]:
+        """
+        Decodes a bitfield telemetry value into a pipe-separated string of active flag names.
+
+        :param value: The bitfield value to decode.
+        :type value: Any
+
+        :param mapping: A dictionary mapping bitmasks to flag names.
+        :type mapping: dict[int, str]
+
+        :return: A pipe-separated string of active flag names, 'none' if no flags are set, or None if value is None.
+        :rtype: str | None
+        """
         if value is None:
             return None
         try:
@@ -158,18 +287,66 @@ class IRacingBaseParser:
         return "|".join(active) if active else "none"
 
     def _ms_to_kph(self, value_mps: Optional[float]) -> Optional[float]:
+        """
+        Converts meters per second to kilometers per hour.
+
+        :param value_mps: The speed in meters per second.
+        :type value_mps: float | None
+
+        :return: The speed in kilometers per hour, or None if input was None.
+        :rtype: float | None
+        """
         return None if value_mps is None else value_mps * 3.6
 
     def _m_to_mm(self, value_m: Optional[float]) -> Optional[float]:
+        """
+        Converts meters to millimeters.
+
+        :param value_m: The distance in meters.
+        :type value_m: float | None
+
+        :return: The distance in millimeters, or None if input was None.
+        :rtype: float | None
+        """
         return None if value_m is None else value_m * 1000.0
 
     def _mps_to_mmps(self, value_mps: Optional[float]) -> Optional[float]:
+        """
+        Converts meters per second to millimeters per second.
+
+        :param value_mps: The speed in meters per second.
+        :type value_mps: float | None
+
+        :return: The speed in millimeters per second, or None if input was None.
+        :rtype: float | None
+        """
         return None if value_mps is None else value_mps * 1000.0
 
     def _ratio_like(self, value: Optional[float]) -> Optional[float]:
+        """
+        Identity function for ratio-like values.
+
+        :param value: The ratio value.
+        :type value: float | None
+
+        :return: The original ratio value.
+        :rtype: float | None
+        """
         return value
 
     def _build_tire_corner(self, prefix: str, compound_code: Optional[int]) -> TireCornerData:
+        """
+        Builds a TireCornerData object for a specific tire corner.
+
+        :param prefix: The telemetry variable prefix for the tire corner (e.g., 'LF').
+        :type prefix: str
+
+        :param compound_code: The tire compound code.
+        :type compound_code: int | None
+
+        :return: A TireCornerData object containing the tire telemetry.
+        :rtype: TireCornerData
+        """
         live_pressure_kpa = self._get_float(f"{prefix}pressure")
         if live_pressure_kpa is None:
             live_pressure_kpa = self._get_float(f"{prefix}Press")
@@ -206,6 +383,15 @@ class IRacingBaseParser:
         )
 
     def _build_suspension_corner(self, prefix: str) -> SuspensionCornerData:
+        """
+        Builds a SuspensionCornerData object for a specific suspension corner.
+
+        :param prefix: The telemetry variable prefix for the suspension corner (e.g., 'LF').
+        :type prefix: str
+
+        :return: A SuspensionCornerData object containing the suspension telemetry.
+        :rtype: SuspensionCornerData
+        """
         return SuspensionCornerData(
             ride_height_mm=self._m_to_mm(self._get_float(f"{prefix}rideHeight")),
             damper_position_mm=self._m_to_mm(self._get_float(f"{prefix}shockDefl")),
@@ -216,11 +402,35 @@ class IRacingBaseParser:
         )
 
     def _safe_array_value(self, arr: Any, idx: int) -> Any:
+        """
+        Safely retrieves a value from an array-like object by index.
+
+        :param arr: The array-like object (list, tuple, etc.).
+        :type arr: Any
+
+        :param idx: The index to retrieve.
+        :type idx: int
+
+        :return: The value at the index, or None if out of bounds or invalid.
+        :rtype: Any
+        """
         if not isinstance(arr, (list, tuple)) or idx < 0 or idx >= len(arr):
             return None
         return arr[idx]
 
     def _safe_array_float_allow_negative_one(self, arr: Any, idx: int) -> Optional[float]:
+        """
+        Safely retrieves a float value from an array, treating negative values (like -1) as None.
+
+        :param arr: The array-like object.
+        :type arr: Any
+
+        :param idx: The index to retrieve.
+        :type idx: int
+
+        :return: The float value, or None if invalid or negative.
+        :rtype: float | None
+        """
         value = self._safe_array_value(arr, idx)
         if value is None:
             return None
@@ -231,6 +441,18 @@ class IRacingBaseParser:
             return None
 
     def _safe_array_int_allow_negative_one(self, arr: Any, idx: int) -> Optional[int]:
+        """
+        Safely retrieves an integer value from an array, treating negative values as None.
+
+        :param arr: The array-like object.
+        :type arr: Any
+
+        :param idx: The index to retrieve.
+        :type idx: int
+
+        :return: The integer value, or None if invalid or negative.
+        :rtype: int | None
+        """
         value = self._safe_array_value(arr, idx)
         if value is None:
             return None
@@ -241,10 +463,28 @@ class IRacingBaseParser:
             return None
 
     def _safe_array_bool(self, arr: Any, idx: int) -> Optional[bool]:
+        """
+        Safely retrieves a boolean value from an array.
+
+        :param arr: The array-like object.
+        :type arr: Any
+
+        :param idx: The index to retrieve.
+        :type idx: int
+
+        :return: The boolean value, or None if invalid.
+        :rtype: bool | None
+        """
         value = self._safe_array_value(arr, idx)
         return None if value is None else bool(value)
 
     def _build_track_map(self) -> TrackMapData:
+        """
+        Builds a TrackMapData object by parsing car-specific telemetry arrays.
+
+        :return: A TrackMapData object containing player index and car markers.
+        :rtype: TrackMapData
+        """
         lap_dist_pct = self._get("CarIdxLapDistPct", [])
         positions = self._get("CarIdxPosition", [])
         class_positions = self._get("CarIdxClassPosition", [])
@@ -290,6 +530,12 @@ class IRacingBaseParser:
 
     # --- THE MASTER PARSER LOGIC ---
     def capture_snapshot(self) -> UnifiedTelemetrySnapshot | None:
+        """
+        The core logic for capturing a full telemetry snapshot from iRacing.
+
+        :return: A UnifiedTelemetrySnapshot instance, or None if not connected.
+        :rtype: UnifiedTelemetrySnapshot | None
+        """
         self.check_connection()
         if not self.connected:
             return None

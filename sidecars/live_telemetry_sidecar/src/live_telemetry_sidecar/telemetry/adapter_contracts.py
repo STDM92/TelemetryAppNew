@@ -48,8 +48,38 @@ class TelemetryAdapter(Protocol):
     @property
     def capabilities(self) -> AdapterCapabilities: ...
 
-    def probe_live(self, request: StartupRequest) -> ProbeResult: ...
+    def probe_live(self, request: StartupRequest) -> ProbeResult:
+        """
+        Probes for a live telemetry source of the simulator type supported by this adapter.
 
-    def describe_live_source(self, probe: ProbeResult) -> SelectedTelemetrySource: ...
+        :param request: The startup request configuration.
+        :type request: StartupRequest
 
-    def build_live_source(self, request: StartupRequest) -> TelemetryReceiver: ...
+        :return: A ProbeResult containing information about the detected simulator state.
+        :rtype: ProbeResult
+        """
+        ...
+
+    def describe_live_source(self, probe: ProbeResult) -> SelectedTelemetrySource:
+        """
+        Provides a description of the live telemetry source based on the probe results.
+
+        :param probe: The result of a previous live probe.
+        :type probe: ProbeResult
+
+        :return: A SelectedTelemetrySource object describing the detected source.
+        :rtype: SelectedTelemetrySource
+        """
+        ...
+
+    def build_live_source(self, request: StartupRequest) -> TelemetryReceiver:
+        """
+        Builds a TelemetryReceiver instance for capturing live data from the simulator.
+
+        :param request: The startup request configuration.
+        :type request: StartupRequest
+
+        :return: A TelemetryReceiver instance for capturing live data.
+        :rtype: TelemetryReceiver
+        """
+        ...

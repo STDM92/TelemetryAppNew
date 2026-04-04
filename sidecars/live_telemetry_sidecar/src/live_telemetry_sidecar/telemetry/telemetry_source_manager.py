@@ -32,6 +32,27 @@ class TelemetrySourceManager:
         detach_probe_interval_s: float = 1.0,
         detach_after_missed_probes: int = 3,
     ):
+        """
+        Initializes the TelemetrySourceManager.
+
+        :param request: The startup request configuration.
+        :type request: StartupRequest
+
+        :param adapters: A list of available telemetry adapters to use for probing.
+        :type adapters: list[TelemetryAdapter]
+
+        :param on_source_selected: An optional callback triggered when a source is selected.
+        :type on_source_selected: Callable[[SelectedTelemetrySource], None] | None
+
+        :param probe_interval_s: The interval in seconds between probes when no source is active.
+        :type probe_interval_s: float
+
+        :param detach_probe_interval_s: The interval in seconds between probes for detaching an active source.
+        :type detach_probe_interval_s: float
+
+        :param detach_after_missed_probes: The number of missed probes before detaching an active source.
+        :type detach_after_missed_probes: int
+        """
         self._request = request
         self._adapters = adapters
         self._on_source_selected = on_source_selected
@@ -57,6 +78,9 @@ class TelemetrySourceManager:
         self._waiting_logged = False
 
     def start(self) -> None:
+        """
+        Starts the background probe worker thread.
+        """
         with self._lock:
             thread = self._probe_thread
             if thread is not None and thread.is_alive():
@@ -74,6 +98,9 @@ class TelemetrySourceManager:
         logger.info("Telemetry source manager probe worker started.")
 
     def stop(self) -> None:
+        """
+        Stops the background probe worker thread and detaches any active source.
+        """
         self._stop_event.set()
 
         thread: threading.Thread | None
@@ -100,9 +127,22 @@ class TelemetrySourceManager:
         self,
         callback: Callable[[SelectedTelemetrySource], None] | None,
     ) -> None:
+        """
+        Sets the callback for when a telemetry source is selected.
+
+        :param callback: The callback function to be executed.
+        :type callback: Callable[[SelectedTelemetrySource], None] | None
+        """
         self._on_source_selected = callback
 
     def capture_snapshot(self):
+        """
+        Captures a telemetry snapshot from the active source. If no source is active but a 
+        candidate is pending, it attempts to attach the candidate.
+
+        :return: A telemetry snapshot if a source is active, otherwise None.
+        :rtype: UnifiedTelemetrySnapshot | None
+        """
         callback_source: SelectedTelemetrySource | None = None
 
         with self._lock:
@@ -122,6 +162,9 @@ class TelemetrySourceManager:
         return None
 
     def _probe_worker(self) -> None:
+        """
+        The target function for the background probe thread, running the probe cycle periodically.
+        """
         while not self._stop_event.is_set():
             try:
                 callback_source = self._run_probe_cycle()
@@ -139,6 +182,13 @@ class TelemetrySourceManager:
             self._stop_event.wait(wait_seconds)
 
     def _run_probe_cycle(self) -> SelectedTelemetrySource | None:
+        """
+        Runs a single probe cycle to either check for detachment of the active source or 
+        select a new candidate source.
+
+        :return: A SelectedTelemetrySource if a change in source occurred (e.g., detachment), otherwise None.
+        :rtype: SelectedTelemetrySource | None
+        """
         with self._lock:
             active_adapter = self._active_adapter
 
@@ -176,6 +226,15 @@ class TelemetrySourceManager:
         return None
 
     def _check_for_detach(self, active_adapter: TelemetryAdapter) -> SelectedTelemetrySource | None:
+        """
+        Checks if the currently active source should be detached due to being no longer running.
+
+        :param active_adapter: The adapter of the currently active source.
+        :type active_adapter: TelemetryAdapter
+
+        :return: A SelectedTelemetrySource (the waiting source) if detached, otherwise None.
+        :rtype: SelectedTelemetrySource | None
+        """
         probe = active_adapter.probe_live(self._request)
         if probe.is_running:
             recovered = False
@@ -218,6 +277,12 @@ class TelemetrySourceManager:
             return self._detach_active_source_locked(notify=True)
 
     def _attach_pending_candidate_locked(self) -> SelectedTelemetrySource | None:
+        """
+        Attaches the currently pending candidate source. Must be called with the lock held.
+
+        :return: The selected source that was attached, or None if no candidate was pending.
+        :rtype: SelectedTelemetrySource | None
+        """
         candidate = self._pending_candidate
         if candidate is None:
             return None
@@ -239,6 +304,15 @@ class TelemetrySourceManager:
         return candidate.selected_source
 
     def _detach_active_source_locked(self, notify: bool) -> SelectedTelemetrySource | None:
+        """
+        Detaches the currently active source. Must be called with the lock held.
+
+        :param notify: Whether to return the waiting source to notify listeners of the detachment.
+        :type notify: bool
+
+        :return: The waiting source if notify is True and a source was detached, otherwise None.
+        :rtype: SelectedTelemetrySource | None
+        """
         active_source = self._active_source
         active_adapter = self._active_adapter
         if active_source is None and active_adapter is None:
@@ -263,6 +337,16 @@ class TelemetrySourceManager:
         return None
 
     def _is_same_pending_candidate_locked(self, candidate: _PendingCandidate) -> bool:
+        """
+        Checks if the given candidate is the same as the currently pending candidate. 
+        Must be called with the lock held.
+
+        :param candidate: The candidate to compare against.
+        :type candidate: _PendingCandidate
+
+        :return: True if they are the same, False otherwise.
+        :rtype: bool
+        """
         pending = self._pending_candidate
         if pending is None:
             return False
@@ -275,6 +359,12 @@ class TelemetrySourceManager:
         )
 
     def _select_live_candidate(self) -> _PendingCandidate | None:
+        """
+        Probes all adapters to find the best candidate for a live telemetry source.
+
+        :return: The best pending candidate found, or None if no candidates are running.
+        :rtype: _PendingCandidate | None
+        """
         candidates: list[_PendingCandidate] = []
 
         for adapter in self._adapters:

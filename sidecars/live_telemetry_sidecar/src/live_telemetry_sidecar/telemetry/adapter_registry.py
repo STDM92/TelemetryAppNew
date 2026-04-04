@@ -4,6 +4,12 @@ from live_telemetry_sidecar.telemetry.adapters.iracing_adapter import IRacingTel
 
 
 def build_available_adapters() -> list[TelemetryAdapter]:
+    """
+    Constructs a list of all currently available telemetry adapters.
+
+    :return: A list of TelemetryAdapter instances.
+    :rtype: list[TelemetryAdapter]
+    """
     # Keep registration explicit and tiny.
     # This is a simple composition helper, not a plugin framework.
     return [
