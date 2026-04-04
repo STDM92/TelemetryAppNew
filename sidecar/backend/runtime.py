@@ -4,8 +4,8 @@ from dataclasses import asdict
 from typing import Awaitable, Callable
 
 from sidecar.telemetry.administrator import TelemetryStateAdministrator
-from sidecar.telemetry.contracts import TelemetryReceiver
 from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
+from sidecar.telemetry.contracts import TelemetryReceiver
 
 
 logger = logging.getLogger(__name__)
@@ -16,12 +16,10 @@ class DriverBackendRuntime:
         self,
         telemetry_source: TelemetryReceiver,
         publish_callback: Callable[[dict], Awaitable[None]] | None = None,
-        activity_source: SelectedTelemetrySource | None = None,
         active_source: SelectedTelemetrySource | None = None,
         tick_hz: float = 60,
     ):
         self._telemetry_source = telemetry_source
-        self.activity_source = activity_source
         self._publish_callback = publish_callback
         self._tick_seconds = 1 / tick_hz
 
@@ -31,6 +29,7 @@ class DriverBackendRuntime:
         self._background_task: asyncio.Task | None = None
         self._status = "created"
         self._last_error: str | None = None
+        self._has_logged_first_snapshot = False
 
     def set_active_source(self, active_source: SelectedTelemetrySource) -> None:
         self._active_source = active_source
@@ -41,7 +40,10 @@ class DriverBackendRuntime:
             return
 
         logger.info("Starting driver backend runtime.")
-        self._background_task = asyncio.create_task(self._telemetry_loop(), name="driver-backend-telemetry-loop")
+        self._background_task = asyncio.create_task(
+            self._telemetry_loop(),
+            name="driver-backend-telemetry-loop",
+        )
         self._background_task.add_done_callback(self._on_background_task_done)
         self._status = "running"
         self._last_error = None
@@ -74,7 +76,6 @@ class DriverBackendRuntime:
         return {
             "status": self._status,
             "last_error": self._last_error,
-            "mode": self._active_source.mode.value if self._active_source is not None else None,
             "sim": self._active_source.sim_kind.value if self._active_source is not None else None,
             "source_kind": self._active_source.source_kind.value if self._active_source is not None else None,
             "source_display_name": self._active_source.display_name if self._active_source is not None else None,
@@ -92,9 +93,6 @@ class DriverBackendRuntime:
             self._last_error = str(exc)
             logger.exception("Telemetry loop failed.")
 
-    def set_active_source(self, active_source: SelectedTelemetrySource) -> None:
-        self._active_source = active_source
-
     async def _telemetry_loop(self) -> None:
         while True:
             try:
@@ -105,7 +103,9 @@ class DriverBackendRuntime:
 
             if snapshot is not None:
                 self._administrator.apply_snapshot(snapshot)
-                self._current_snapshot_dict = asdict(self._administrator.get_latest_snapshot())
+                self._current_snapshot_dict = asdict(
+                    self._administrator.get_latest_snapshot()
+                )
 
                 if not self._has_logged_first_snapshot:
                     logger.info("First telemetry snapshot applied.")
