@@ -3,6 +3,7 @@
 mod commands;
 mod config;
 mod sidecar;
+mod debug_dump;
 
 use crate::config::{load_config, AppConfig};
 use crate::sidecar::SidecarManager;

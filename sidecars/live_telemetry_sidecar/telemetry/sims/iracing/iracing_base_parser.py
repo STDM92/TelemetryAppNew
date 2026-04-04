@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Optional
 
 import irsdk
 
-from sidecar.telemetry.models.unified_snapshot import (
+from sidecar.live_telemetry_sidecar.telemetry.models.unified_snapshot import (
     AngularRate,
     BrakeCornerData,
     BrakeSystemData,
@@ -30,6 +31,7 @@ from sidecar.telemetry.models.unified_snapshot import (
     VehicleDynamics,
 )
 
+logger = logging.getLogger(__name__)
 
 def enum_class_to_dict(enum_cls, *, overrides: dict[int, str] | None = None) -> dict[int, str]:
     result = {}
@@ -474,8 +476,12 @@ class IRacingBaseParser:
                 pit=pit,
                 track_map=track_map,
             )
-        except Exception as ex:
-            print(f"Failed to capture snapshot: {ex}")
-            return None
+        except Exception:
+            logger.exception(
+                "Failed to capture iRacing snapshot. source=%s connected=%s",
+                self.source_name,
+                self.connected,
+            )
+            raise
         finally:
             self._post_capture()
