@@ -33,7 +33,6 @@ class DeferredLiveReceiver:
         self._waiting_source = SelectedTelemetrySource(
             sim_kind=SimKind.UNKNOWN,
             display_name="Waiting for simulator",
-            mode=request.mode,
             source_kind=SourceKind.LIVE_FEED,
             file_path=None,
         )

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from sidecar.telemetry.adapter_contracts import (
     AdapterCapabilities,
-    AnalyzableItem,
     ProbeResult,
     SelectedTelemetrySource,
 )
-from sidecar.telemetry.modes import RuntimeMode, SimKind, SourceKind, StartupRequest
+from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 from sidecar.telemetry.sims.mock.mock_receiver import MockSimReceiver
 
 
@@ -35,9 +33,6 @@ class MockSimTelemetryAdapter:
     def capabilities(self) -> AdapterCapabilities:
         return AdapterCapabilities(
             supports_live=True,
-            supports_analyze_catalog=False,
-            supports_analyze_from_file=False,
-            supports_replay_file=False,
         )
 
     def probe_live(self, request: StartupRequest) -> ProbeResult:
@@ -45,7 +40,7 @@ class MockSimTelemetryAdapter:
 
         try:
             http_request = Request(sim_info_url, method="GET")
-            with urlopen(http_request, timeout=0.5) as response:
+            with urlopen(http_request, timeout=1.5) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except (URLError, HTTPError, TimeoutError, json.JSONDecodeError) as exc:
             return ProbeResult(
@@ -81,16 +76,8 @@ class MockSimTelemetryAdapter:
         return SelectedTelemetrySource(
             sim_kind=probe.sim_kind,
             display_name=probe.display_name,
-            mode=RuntimeMode.LIVE,
             source_kind=SourceKind.LIVE_FEED,
-            file_path=None,
         )
 
     def build_live_source(self, request: StartupRequest) -> MockSimReceiver:
         return MockSimReceiver(base_url=self._base_url)
-
-    def build_file_source(self, request: StartupRequest, file_path: Path):
-        raise RuntimeError("Mock sim does not support file-based source construction.")
-
-    def list_analyzable_items(self, request: StartupRequest) -> list[AnalyzableItem]:
-        return []

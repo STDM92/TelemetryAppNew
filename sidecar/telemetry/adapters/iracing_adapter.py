@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 
 from sidecar.telemetry.adapter_contracts import (
     AdapterCapabilities,
-    AnalyzableItem,
     ProbeResult,
     SelectedTelemetrySource,
 )
-from sidecar.telemetry.modes import RuntimeMode, SimKind, SourceKind, StartupRequest
-from sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
+from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 from sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 
 
@@ -47,9 +44,6 @@ class IRacingTelemetryAdapter:
     def capabilities(self) -> AdapterCapabilities:
         return AdapterCapabilities(
             supports_live=True,
-            supports_analyze_catalog=True,
-            supports_analyze_from_file=True,
-            supports_replay_file=False,
         )
 
     def probe_live(self, request: StartupRequest) -> ProbeResult:
@@ -80,16 +74,8 @@ class IRacingTelemetryAdapter:
         return SelectedTelemetrySource(
             sim_kind=probe.sim_kind,
             display_name=probe.display_name,
-            mode=RuntimeMode.LIVE,
             source_kind=SourceKind.LIVE_FEED,
-            file_path=None,
         )
 
     def build_live_source(self, request: StartupRequest) -> IRacingReceiver:
         return IRacingReceiver()
-
-    def build_file_source(self, request: StartupRequest, file_path: Path) -> IRacingReader:
-        return IRacingReader(str(file_path))
-
-    def list_analyzable_items(self, request: StartupRequest) -> list[AnalyzableItem]:
-        return []
