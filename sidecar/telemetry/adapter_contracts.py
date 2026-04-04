@@ -60,3 +60,9 @@ class TelemetryAdapter(Protocol):
 
     @property
     def display_name(self) -> str: ...
+
+    @property
+    def capabilities(self) -> AdapterCapabilities: ...
+
+    @property
+    def capabilities(self) -> AdapterCapabilities: ...

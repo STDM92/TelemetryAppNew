@@ -6,7 +6,6 @@ from pathlib import Path
 class RuntimeMode(str, Enum):
     LIVE = "live"
     ANALYZE = "analyze"
-    REPLAY = "replay"
 
 
 class SimKind(str, Enum):
@@ -14,13 +13,13 @@ class SimKind(str, Enum):
     ACC = "acc"
     LMU = "lmu"
     F1 = "f1"
+    MOCK = "mock"
     UNKNOWN = "unknown"
 
 
 class SourceKind(str, Enum):
     LIVE_FEED = "live_feed"
     FILE = "file"
-    REPLAY_FILE = "replay_file"
 
 
 @dataclass(frozen=True)

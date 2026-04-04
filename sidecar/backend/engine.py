@@ -15,7 +15,9 @@ from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
 from sidecar.telemetry.adapter_registry import build_available_adapters
 from sidecar.telemetry.adapter_selection import select_live_adapter
 from sidecar.telemetry.contracts import TelemetryReceiver
-from sidecar.telemetry.modes import RuntimeMode, SourceKind, StartupRequest
+from sidecar.telemetry.deferred_live_receiver import DeferredLiveReceiver
+from sidecar.telemetry.modes import RuntimeMode, SourceKind, StartupRequest, SimKind
+
 
 
 class StartupArgumentError(ValueError):
@@ -54,14 +56,14 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
     parser = StartupArgumentParser(description="Telemetry Backend Engine")
     parser.add_argument(
         "--mode",
-        choices=["live", "replay", "analyze"],
+        choices=["live", "analyze"],
         default="live",
         help="Operating mode",
     )
     parser.add_argument(
         "--file",
         type=str,
-        help="Path to the telemetry file (required for replay/analyze)",
+        help="Path to the telemetry file (required for analyze)",
     )
     parser.add_argument(
         "--port",
@@ -74,9 +76,9 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
     file_path = args.file.strip() if isinstance(args.file, str) else None
     file_path = file_path or None
 
-    if args.mode in {"replay", "analyze"}:
+    if args.mode == "analyze":
         if file_path is None:
-            parser.error("--file is required when --mode is replay or analyze.")
+            parser.error("--file is required when --mode is analyze.")
 
         candidate = Path(file_path)
         if not candidate.is_file():
@@ -84,7 +86,7 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
 
         file_path = str(candidate)
     elif file_path is not None:
-        parser.error("--file is only valid when --mode is replay or analyze.")
+        parser.error("--file is only valid when --mode is analyze.")
 
     return StartupRequest(
         mode=RuntimeMode(args.mode),
@@ -99,43 +101,40 @@ def build_runtime_source(
     adapters = build_available_adapters()
 
     if request.mode is RuntimeMode.LIVE:
-        selection = select_live_adapter(request, adapters)
-        adapter = next(a for a in adapters if a.adapter_id == selection.adapter_id)
-        return adapter.build_live_source(request), selection.source
+        waiting_source = SelectedTelemetrySource(
+            sim_kind=SimKind.UNKNOWN,
+            display_name="Waiting for simulator",
+            mode=request.mode,
+            source_kind=SourceKind.LIVE_FEED,
+            file_path=None,
+        )
 
-    if request.mode in {RuntimeMode.ANALYZE, RuntimeMode.REPLAY}:
+        receiver = DeferredLiveReceiver(
+            request=request,
+            adapters=adapters,
+        )
+        return receiver, waiting_source
+
+    if request.mode is RuntimeMode.ANALYZE:
         if request.file_path is None:
-            raise RuntimeError(f"{request.mode.value} mode requires a file_path.")
+            raise RuntimeError("analyze mode requires a file_path.")
 
         if not adapters:
             raise RuntimeError("No telemetry adapters are registered.")
 
-        # Keep file-based modes intentionally simple for now.
-        # Replay stays minimally invasive so it can be removed later
-        # without reshaping the live adapter architecture.
-        # For now, reuse the first registered adapter's file path support.
-        # For now, use the first registered adapter because the current
-        # implementation is still effectively iRacing-only for file-based modes.
         adapter = adapters[0]
-        source_kind = (
-            SourceKind.REPLAY_FILE
-            if request.mode is RuntimeMode.REPLAY
-            else SourceKind.FILE
-        )
         selected_source = SelectedTelemetrySource(
             sim_kind=adapter.sim_kind,
             display_name=adapter.display_name,
             mode=request.mode,
-            source_kind=source_kind,
+            source_kind=SourceKind.FILE,
             file_path=request.file_path,
         )
         return adapter.build_file_source(request, request.file_path), selected_source
 
     raise RuntimeError(f"Unsupported mode: {request.mode.value}")
 
-
 def configure_framework_logging() -> None:
-    """Route uvicorn/FastAPI logs through the sidecar's logging configuration."""
     logger_names = [
         "uvicorn",
         "uvicorn.error",
@@ -238,6 +237,9 @@ def main(argv: list[str] | None = None) -> int:
             publish_callback=manager.broadcast,
             active_source=selected_source,
         )
+
+        if isinstance(telemetry_source, DeferredLiveReceiver):
+            telemetry_source.set_on_source_selected(runtime.set_active_source)
 
         logger.info("Launching HTTP server on port %s.", request.port)
         uvicorn.run(app, host="0.0.0.0", port=request.port, log_config=None)

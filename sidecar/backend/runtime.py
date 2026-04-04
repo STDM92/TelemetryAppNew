@@ -16,10 +16,12 @@ class DriverBackendRuntime:
         self,
         telemetry_source: TelemetryReceiver,
         publish_callback: Callable[[dict], Awaitable[None]] | None = None,
+        activity_source: SelectedTelemetrySource | None = None,
         active_source: SelectedTelemetrySource | None = None,
         tick_hz: float = 60,
     ):
         self._telemetry_source = telemetry_source
+        self.activity_source = activity_source
         self._publish_callback = publish_callback
         self._tick_seconds = 1 / tick_hz
 
@@ -29,6 +31,9 @@ class DriverBackendRuntime:
         self._background_task: asyncio.Task | None = None
         self._status = "created"
         self._last_error: str | None = None
+
+    def set_active_source(self, active_source: SelectedTelemetrySource) -> None:
+        self._active_source = active_source
 
     async def start(self) -> None:
         if self._background_task is not None and not self._background_task.done():
@@ -86,6 +91,9 @@ class DriverBackendRuntime:
             self._status = "failed"
             self._last_error = str(exc)
             logger.exception("Telemetry loop failed.")
+
+    def set_active_source(self, active_source: SelectedTelemetrySource) -> None:
+        self._active_source = active_source
 
     async def _telemetry_loop(self) -> None:
         while True:
