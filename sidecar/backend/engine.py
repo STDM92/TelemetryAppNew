@@ -12,8 +12,7 @@ from sidecar.backend.websocket import WebSocketConnectionManager
 from sidecar.logging_config import configure_logging
 from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
 from sidecar.telemetry.adapter_registry import build_available_adapters
-from sidecar.telemetry.contracts import TelemetryReceiver
-from sidecar.telemetry.deferred_live_receiver import DeferredLiveReceiver
+from sidecar.telemetry.telemetry_source_manager import TelemetrySourceManager
 from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 
 
@@ -114,12 +113,21 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
-@app.get("/health")
-def health():
+def _runtime_status_payload() -> dict:
     if runtime is None:
         return {"status": "not_configured"}
 
     return runtime.get_status()
+
+
+@app.get("/health")
+def health():
+    return _runtime_status_payload()
+
+
+@app.get("/status")
+def get_current_status():
+    return _runtime_status_payload()
 
 
 @app.get("/api/state")
@@ -129,12 +137,7 @@ def get_current_state():
     return runtime.get_current_state()
 
 
-@app.get("/status")
-def get_current_status():
-    if runtime is None:
-        return {"status": "not_configured"}
 
-    return runtime.get_status()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -153,9 +156,9 @@ def main(argv: list[str] | None = None) -> int:
         waiting_source = SelectedTelemetrySource(
             sim_kind=SimKind.UNKNOWN,
             display_name="Waiting for simulator",
-            source_kind=SourceKind.LIVE_FEED,
+            source_kind=SourceKind.UNKNOWN,
         )
-        telemetry_source = DeferredLiveReceiver(
+        telemetry_source = TelemetrySourceManager(
             request=request,
             adapters=adapters,
         )

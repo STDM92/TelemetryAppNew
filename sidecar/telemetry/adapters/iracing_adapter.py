@@ -74,7 +74,7 @@ class IRacingTelemetryAdapter:
         return SelectedTelemetrySource(
             sim_kind=probe.sim_kind,
             display_name=probe.display_name,
-            source_kind=SourceKind.LIVE_FEED,
+            source_kind=SourceKind.MMAP,
         )
 
     def build_live_source(self, request: StartupRequest) -> IRacingReceiver:

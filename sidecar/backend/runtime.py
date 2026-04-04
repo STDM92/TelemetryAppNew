@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from dataclasses import asdict
 from typing import Awaitable, Callable
 
@@ -18,10 +19,12 @@ class DriverBackendRuntime:
         publish_callback: Callable[[dict], Awaitable[None]] | None = None,
         active_source: SelectedTelemetrySource | None = None,
         tick_hz: float = 60,
+        stale_after_s: float = 3.0,
     ):
         self._telemetry_source = telemetry_source
         self._publish_callback = publish_callback
         self._tick_seconds = 1 / tick_hz
+        self._stale_after_s = stale_after_s
 
         self._active_source = active_source
         self._administrator = TelemetryStateAdministrator()
@@ -30,6 +33,8 @@ class DriverBackendRuntime:
         self._status = "created"
         self._last_error: str | None = None
         self._has_logged_first_snapshot = False
+        self._has_received_snapshot = False
+        self._last_snapshot_at: float | None = None
 
     def set_active_source(self, active_source: SelectedTelemetrySource) -> None:
         self._active_source = active_source
@@ -48,6 +53,8 @@ class DriverBackendRuntime:
         self._status = "running"
         self._last_error = None
         self._has_logged_first_snapshot = False
+        self._has_received_snapshot = False
+        self._last_snapshot_at = None
 
     async def stop(self) -> None:
         if self._background_task is None:
@@ -73,13 +80,45 @@ class DriverBackendRuntime:
         return self._current_snapshot_dict
 
     def get_status(self) -> dict:
+        now = time.time()
+        source_attachment_state = self._get_source_attachment_state()
+        stream_state = self._get_stream_state(now)
+
         return {
             "status": self._status,
             "last_error": self._last_error,
+            "source_attachment_state": source_attachment_state,
+            "stream_state": stream_state,
+            "has_received_snapshot": self._has_received_snapshot,
+            "last_snapshot_at": self._last_snapshot_at,
             "sim": self._active_source.sim_kind.value if self._active_source is not None else None,
             "source_kind": self._active_source.source_kind.value if self._active_source is not None else None,
             "source_display_name": self._active_source.display_name if self._active_source is not None else None,
         }
+
+    def _get_source_attachment_state(self) -> str:
+        if self._active_source is None:
+            return "none"
+
+        if self._active_source.display_name == "Waiting for simulator":
+            return "waiting"
+
+        return "attached"
+
+    def _get_stream_state(self, now: float) -> str:
+        if self._status == "failed":
+            return "failed"
+
+        if not self._has_received_snapshot:
+            return "idle"
+
+        if self._last_snapshot_at is None:
+            return "idle"
+
+        if now - self._last_snapshot_at > self._stale_after_s:
+            return "stale"
+
+        return "streaming"
 
     def _on_background_task_done(self, task: asyncio.Task) -> None:
         if task.cancelled():
@@ -106,6 +145,8 @@ class DriverBackendRuntime:
                 self._current_snapshot_dict = asdict(
                     self._administrator.get_latest_snapshot()
                 )
+                self._has_received_snapshot = True
+                self._last_snapshot_at = time.time()
 
                 if not self._has_logged_first_snapshot:
                     logger.info("First telemetry snapshot applied.")

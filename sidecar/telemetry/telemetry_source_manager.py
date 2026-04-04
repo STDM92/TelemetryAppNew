@@ -5,7 +5,6 @@ import time
 from typing import Callable
 
 from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource, TelemetryAdapter
-from sidecar.telemetry.adapter_selection import select_live_adapter
 from sidecar.telemetry.contracts import TelemetryReceiver
 from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 
@@ -13,7 +12,7 @@ from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 logger = logging.getLogger(__name__)
 
 
-class DeferredLiveReceiver:
+class TelemetrySourceManager:
     def __init__(
         self,
         request: StartupRequest,
@@ -33,8 +32,7 @@ class DeferredLiveReceiver:
         self._waiting_source = SelectedTelemetrySource(
             sim_kind=SimKind.UNKNOWN,
             display_name="Waiting for simulator",
-            source_kind=SourceKind.LIVE_FEED,
-            file_path=None,
+            source_kind=SourceKind.UNKNOWN,
         )
 
         self._active_source: TelemetryReceiver | None = None
@@ -68,15 +66,14 @@ class DeferredLiveReceiver:
 
         self._last_probe_attempt_monotonic = now
 
-        try:
-            selection = select_live_adapter(self._request, self._adapters)
-        except RuntimeError:
+        candidate = self._select_live_candidate()
+        if candidate is None:
             if not self._waiting_logged:
                 logger.info("No supported live sim detected yet. Continuing to probe.")
                 self._waiting_logged = True
             return None
 
-        adapter = next(a for a in self._adapters if a.adapter_id == selection.adapter_id)
+        adapter, selected_source = candidate
         self._active_source = adapter.build_live_source(self._request)
         self._active_adapter = adapter
         self._last_detach_probe_monotonic = 0.0
@@ -85,15 +82,17 @@ class DeferredLiveReceiver:
 
         logger.info(
             "Attached live telemetry source. sim=%s adapter_id=%s source_kind=%s",
-            selection.source.display_name,
-            selection.adapter_id,
-            selection.source.source_kind.value,
+            selected_source.display_name,
+            adapter.adapter_id,
+            selected_source.source_kind.value,
         )
 
         if self._on_source_selected is not None:
-            self._on_source_selected(selection.source)
+            self._on_source_selected(selected_source)
 
         return None
+
+
     def _maybe_check_for_detach(self) -> None:
         if self._active_adapter is None:
             return
@@ -147,3 +146,37 @@ class DeferredLiveReceiver:
 
         if self._on_source_selected is not None:
             self._on_source_selected(self._waiting_source)
+
+
+    def _select_live_candidate(self) -> tuple[TelemetryAdapter, SelectedTelemetrySource] | None:
+        candidates: list[tuple[TelemetryAdapter, int, SelectedTelemetrySource, str | None]] = []
+
+        for adapter in self._adapters:
+            if not adapter.capabilities.supports_live:
+                continue
+
+            if self._request.requested_sim is not None and adapter.sim_kind is not self._request.requested_sim:
+                continue
+
+            probe = adapter.probe_live(self._request)
+            if not probe.is_running:
+                continue
+
+            selected_source = adapter.describe_live_source(probe)
+            candidates.append((adapter, probe.confidence, selected_source, probe.detail))
+
+        if not candidates:
+            return None
+
+        candidates.sort(key=lambda item: item[1], reverse=True)
+        selected_adapter, confidence, selected_source, detail = candidates[0]
+
+        logger.info(
+            "Selected live candidate. adapter_id=%s sim=%s confidence=%s detail=%s",
+            selected_adapter.adapter_id,
+            selected_source.sim_kind.value,
+            confidence,
+            detail,
+        )
+
+        return selected_adapter, selected_source

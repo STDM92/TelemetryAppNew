@@ -12,7 +12,12 @@ class SimKind(str, Enum):
 
 
 class SourceKind(str, Enum):
-    LIVE_FEED = "live_feed"
+    MMAP = "mmap"
+    SDK = "sdk"
+    UDP = "udp"
+    WEBSOCKET = "websocket"
+    MOCK_STREAM = "mock_stream"
+    UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True)
