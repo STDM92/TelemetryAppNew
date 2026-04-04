@@ -1,4 +1,4 @@
-from .engine import main
+from live_telemetry_sidecar.engine import main
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

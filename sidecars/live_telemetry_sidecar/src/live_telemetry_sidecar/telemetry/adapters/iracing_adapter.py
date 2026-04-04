@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from typing import TYPE_CHECKING
 
 from live_telemetry_sidecar.telemetry.adapter_contracts import (
     AdapterCapabilities,
@@ -8,7 +9,10 @@ from live_telemetry_sidecar.telemetry.adapter_contracts import (
     SelectedTelemetrySource,
 )
 from live_telemetry_sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
-from live_telemetry_sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
+
+
+if TYPE_CHECKING:
+    from live_telemetry_sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 
 
 def _is_windows_process_running(process_name: str) -> bool:
@@ -77,5 +81,9 @@ class IRacingTelemetryAdapter:
             source_kind=SourceKind.MMAP,
         )
 
-    def build_live_source(self, request: StartupRequest) -> IRacingReceiver:
+    def build_live_source(self, request: StartupRequest) -> "IRacingReceiver":
+        from live_telemetry_sidecar.telemetry.sims.iracing.iracing_receiver import (
+            IRacingReceiver,
+        )
+
         return IRacingReceiver()
