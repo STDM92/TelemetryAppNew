@@ -1,0 +1,67 @@
+INFO     | 2026-04-04 18:37:55,072 | live_telemetry_sidecar.engine | Configured logging. log_file=C:\Users\Johan\PycharmProjects\TelemetryAppNew\sidecars\live_telemetry_sidecar\src\live_telemetry_sidecar\logs\sidecars.log
+INFO     | 2026-04-04 18:48:55,410 | live_telemetry_sidecar.engine | Configured logging. log_file=C:\Users\Johan\PycharmProjects\TelemetryAppNew\sidecars\live_telemetry_sidecar\src\live_telemetry_sidecar\logs\sidecars.log
+INFO     | 2026-04-04 18:48:55,410 | live_telemetry_sidecar.engine | Starting live backend (port=8000).
+INFO     | 2026-04-04 18:48:55,410 | live_telemetry_sidecar.engine | Telemetry source initialized. sim=Waiting for simulator source_kind=unknown source=TelemetrySourceManager
+INFO     | 2026-04-04 18:48:55,411 | live_telemetry_sidecar.engine | Launching HTTP server on port 8000.
+DEBUG    | 2026-04-04 18:48:55,412 | asyncio | Using proactor: IocpProactor
+INFO     | 2026-04-04 18:48:55,421 | uvicorn.error | Started server process [25852]
+INFO     | 2026-04-04 18:48:55,421 | uvicorn.error | Waiting for application startup.
+INFO     | 2026-04-04 18:48:55,421 | live_telemetry_sidecar.telemetry.telemetry_source_manager | Telemetry source manager probe worker started.
+INFO     | 2026-04-04 18:48:55,422 | live_telemetry_sidecar.backend.runtime | Starting driver backend runtime.
+INFO     | 2026-04-04 18:48:55,422 | uvicorn.error | Application startup complete.
+INFO     | 2026-04-04 18:48:55,422 | uvicorn.error | Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO     | 2026-04-04 18:48:57,026 | live_telemetry_sidecar.telemetry.telemetry_source_manager | No supported live sim detected yet. Continuing to probe.
+INFO     | 2026-04-04 18:49:07,914 | uvicorn.error | Shutting down
+INFO     | 2026-04-04 18:49:08,025 | uvicorn.error | Waiting for application shutdown.
+INFO     | 2026-04-04 18:49:08,025 | live_telemetry_sidecar.backend.runtime | Stopping driver backend runtime.
+DEBUG    | 2026-04-04 18:49:08,025 | live_telemetry_sidecar.backend.runtime | Telemetry loop task completed via cancellation.
+DEBUG    | 2026-04-04 18:49:08,025 | live_telemetry_sidecar.backend.runtime | Driver backend runtime task cancelled during stop.
+INFO     | 2026-04-04 18:49:08,026 | live_telemetry_sidecar.telemetry.telemetry_source_manager | Telemetry source manager stopped.
+INFO     | 2026-04-04 18:49:08,026 | live_telemetry_sidecar.backend.runtime | Driver backend runtime stopped.
+INFO     | 2026-04-04 18:49:08,026 | live_telemetry_sidecar.engine | Backend Engine cleanly shut down.
+INFO     | 2026-04-04 18:49:08,026 | uvicorn.error | Application shutdown complete.
+INFO     | 2026-04-04 18:49:08,026 | uvicorn.error | Finished server process [25852]
+INFO     | 2026-04-04 18:50:34,595 | live_telemetry_sidecar.engine | Configured logging. log_file=C:\Users\Johan\PycharmProjects\TelemetryAppNew\sidecars\live_telemetry_sidecar\src\live_telemetry_sidecar\logs\sidecars.log
+INFO     | 2026-04-04 18:50:34,596 | live_telemetry_sidecar.engine | Starting live backend (port=8000).
+INFO     | 2026-04-04 18:50:34,596 | live_telemetry_sidecar.engine | Telemetry source initialized. sim=Waiting for simulator source_kind=unknown source=TelemetrySourceManager
+INFO     | 2026-04-04 18:50:34,596 | live_telemetry_sidecar.engine | Launching HTTP server on port 8000.
+DEBUG    | 2026-04-04 18:50:34,597 | asyncio | Using proactor: IocpProactor
+INFO     | 2026-04-04 18:50:34,605 | uvicorn.error | Started server process [22776]
+INFO     | 2026-04-04 18:50:34,605 | uvicorn.error | Waiting for application startup.
+INFO     | 2026-04-04 18:50:34,606 | live_telemetry_sidecar.telemetry.telemetry_source_manager | Telemetry source manager probe worker started.
+INFO     | 2026-04-04 18:50:34,606 | live_telemetry_sidecar.backend.runtime | Starting driver backend runtime.
+INFO     | 2026-04-04 18:50:34,606 | uvicorn.error | Application startup complete.
+INFO     | 2026-04-04 18:50:34,606 | uvicorn.error | Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO     | 2026-04-04 18:50:36,208 | live_telemetry_sidecar.telemetry.telemetry_source_manager | No supported live sim detected yet. Continuing to probe.
+INFO     | 2026-04-04 18:50:36,580 | uvicorn.error | Shutting down
+INFO     | 2026-04-04 18:50:36,688 | uvicorn.error | Waiting for application shutdown.
+INFO     | 2026-04-04 18:50:36,688 | live_telemetry_sidecar.backend.runtime | Stopping driver backend runtime.
+DEBUG    | 2026-04-04 18:50:36,688 | live_telemetry_sidecar.backend.runtime | Telemetry loop task completed via cancellation.
+DEBUG    | 2026-04-04 18:50:36,688 | live_telemetry_sidecar.backend.runtime | Driver backend runtime task cancelled during stop.
+INFO     | 2026-04-04 18:50:36,689 | live_telemetry_sidecar.telemetry.telemetry_source_manager | Telemetry source manager stopped.
+INFO     | 2026-04-04 18:50:36,689 | live_telemetry_sidecar.backend.runtime | Driver backend runtime stopped.
+INFO     | 2026-04-04 18:50:36,689 | live_telemetry_sidecar.engine | Backend Engine cleanly shut down.
+INFO     | 2026-04-04 18:50:36,689 | uvicorn.error | Application shutdown complete.
+INFO     | 2026-04-04 18:50:36,689 | uvicorn.error | Finished server process [22776]
+INFO     | 2026-04-04 18:53:24,237 | live_telemetry_sidecar.engine | Configured logging. log_file=C:\Users\Johan\PycharmProjects\TelemetryAppNew\sidecars\live_telemetry_sidecar\src\live_telemetry_sidecar\logs\sidecars.log
+INFO     | 2026-04-04 18:53:24,238 | live_telemetry_sidecar.engine | Starting live backend (port=8123).
+INFO     | 2026-04-04 18:53:24,238 | live_telemetry_sidecar.engine | Telemetry source initialized. sim=Waiting for simulator source_kind=unknown source=TelemetrySourceManager
+INFO     | 2026-04-04 18:53:24,238 | live_telemetry_sidecar.engine | Launching HTTP server on port 8123.
+DEBUG    | 2026-04-04 18:53:24,239 | asyncio | Using proactor: IocpProactor
+INFO     | 2026-04-04 18:53:24,248 | uvicorn.error | Started server process [9436]
+INFO     | 2026-04-04 18:53:24,248 | uvicorn.error | Waiting for application startup.
+INFO     | 2026-04-04 18:53:24,249 | live_telemetry_sidecar.telemetry.telemetry_source_manager | Telemetry source manager probe worker started.
+INFO     | 2026-04-04 18:53:24,250 | live_telemetry_sidecar.backend.runtime | Starting driver backend runtime.
+INFO     | 2026-04-04 18:53:24,250 | uvicorn.error | Application startup complete.
+INFO     | 2026-04-04 18:53:24,250 | uvicorn.error | Uvicorn running on http://0.0.0.0:8123 (Press CTRL+C to quit)
+INFO     | 2026-04-04 18:53:25,854 | live_telemetry_sidecar.telemetry.telemetry_source_manager | No supported live sim detected yet. Continuing to probe.
+INFO     | 2026-04-04 18:53:32,422 | uvicorn.error | Shutting down
+INFO     | 2026-04-04 18:53:32,532 | uvicorn.error | Waiting for application shutdown.
+INFO     | 2026-04-04 18:53:32,532 | live_telemetry_sidecar.backend.runtime | Stopping driver backend runtime.
+DEBUG    | 2026-04-04 18:53:32,532 | live_telemetry_sidecar.backend.runtime | Telemetry loop task completed via cancellation.
+DEBUG    | 2026-04-04 18:53:32,532 | live_telemetry_sidecar.backend.runtime | Driver backend runtime task cancelled during stop.
+INFO     | 2026-04-04 18:53:33,680 | live_telemetry_sidecar.telemetry.telemetry_source_manager | Telemetry source manager stopped.
+INFO     | 2026-04-04 18:53:33,680 | live_telemetry_sidecar.backend.runtime | Driver backend runtime stopped.
+INFO     | 2026-04-04 18:53:33,681 | live_telemetry_sidecar.engine | Backend Engine cleanly shut down.
+INFO     | 2026-04-04 18:53:33,681 | uvicorn.error | Application shutdown complete.
+INFO     | 2026-04-04 18:53:33,681 | uvicorn.error | Finished server process [9436]
