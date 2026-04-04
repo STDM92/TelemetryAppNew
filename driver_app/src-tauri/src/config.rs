@@ -92,7 +92,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             sidecar_executable_path:
-            "sidecars/live_telemetry_sidecar/dist/live-telemetry-sidecar.exe"
+            "sidecars/live_telemetry_sidecar/dist/live-telemetry-sidecar/live-telemetry-sidecar.exe"
                 .to_string(),
             backend_port: 8000,
         }

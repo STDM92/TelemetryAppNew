@@ -1,5 +1,3 @@
-export type BackendMode = "live" | "replay" | "analyze";
-
 export type AppConfig = {
   sidecarExecutablePath: string;
   backendPort: number;
@@ -23,4 +21,7 @@ export type SidecarProcessState = {
   pid: number | null;
   exitCode: number | null;
   lastError: string | null;
-}
+  lastExitReason: string | null;
+  stdoutTail: string[];
+  stderrTail: string[];
+};
