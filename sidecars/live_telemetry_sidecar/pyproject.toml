@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "live-telemetry-sidecar"
+version = "0.1.0"
+description = "Standalone telemetry backend sidecar"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pyirsdk",
+]
+
+[project.scripts]
+live-telemetry-sidecar = "live_telemetry_sidecar.engine:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
