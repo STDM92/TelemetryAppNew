@@ -377,7 +377,7 @@ class MockHostHandler(BaseHTTPRequestHandler):
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Minimal mock host for telemetry sidecar validation")
+    parser = argparse.ArgumentParser(description="Minimal mock host for telemetry sidecars validation")
     parser.add_argument("--mode", choices=["live", "replay", "analyze"], default="live")
     parser.add_argument("--file", help="Telemetry file path for replay/analyze modes")
     parser.add_argument("--backend-port", type=int, default=DEFAULT_BACKEND_PORT)

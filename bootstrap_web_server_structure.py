@@ -14,7 +14,7 @@ Minimal FastAPI-based LAN session/web server for the telemetry product.
 Responsibilities in this first bootstrap:
 - serve the engineer-facing web app later
 - host a simple session relay API
-- accept sidecar uplink connections later
+- accept sidecars uplink connections later
 - accept engineer browser connections later
 
 Not responsible for:
@@ -173,7 +173,7 @@ class ServerConfig(BaseModel):
         self._sessions: dict[str, dict] = {}
 """,
     "web_server/app/core/connection_hub.py": """class ConnectionHub:
-    # Placeholder for future sidecar/engineer websocket connection tracking.
+    # Placeholder for future sidecars/engineer websocket connection tracking.
 
     def __init__(self) -> None:
         self._connections: dict[str, list] = {}

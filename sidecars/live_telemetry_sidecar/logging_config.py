@@ -12,7 +12,7 @@ def configure_logging(*, logs_dir: str | Path | None = None) -> Path:
     target_dir = Path(logs_dir) if logs_dir is not None else base_dir / "logs"
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    log_file_path = target_dir / "sidecar.log"
+    log_file_path = target_dir / "sidecars.log"
     root_logger = logging.getLogger()
 
     if getattr(configure_logging, "_configured", False):

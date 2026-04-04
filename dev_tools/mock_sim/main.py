@@ -190,7 +190,7 @@ class MockSimRuntime:
 
 
 def parse_args(argv: list[str] | None = None) -> MockSimConfig:
-    parser = MockSimArgumentParser(description="Mock simulator for sidecar live-pipeline testing")
+    parser = MockSimArgumentParser(description="Mock simulator for sidecars live-pipeline testing")
     parser.add_argument("--file", required=True, help="Path to the source .ibt file")
     parser.add_argument("--port", type=int, default=8766, help="Port to run the mock sim on")
     parser.add_argument("--hz", type=float, default=60.0, help="Replay rate in frames per second")

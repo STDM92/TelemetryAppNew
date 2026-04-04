@@ -244,17 +244,17 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
   }
 
   startButton.addEventListener("click", () => {
-    void runProcessAction(startSidecar, "Failed to start sidecar");
+    void runProcessAction(startSidecar, "Failed to start sidecars");
     configStatusText.textContent = "Changes apply on next start or restart.";
   });
 
   stopButton.addEventListener("click", () => {
-    void runProcessAction(stopSidecar, "Failed to stop sidecar");
+    void runProcessAction(stopSidecar, "Failed to stop sidecars");
     configStatusText.textContent = "Changes apply on next start or restart.";
   });
 
   restartButton.addEventListener("click", () => {
-    void runProcessAction(restartSidecar, "Failed to restart sidecar");
+    void runProcessAction(restartSidecar, "Failed to restart sidecars");
     configStatusText.textContent = "Changes apply on next start or restart.";
   });
 
@@ -284,7 +284,7 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
         backendModeSelect.value = updated.backendMode;
         backendFilePathInput.value = updated.backendFilePath ?? "";
         updateFileFieldVisibility();
-        configStatusText.textContent = "Config applied. Start or restart sidecar.";
+        configStatusText.textContent = "Config applied. Start or restart sidecars.";
         const refreshedBootstrap = await getBootstrapConfig();
         console.log("refreshedBootstrap", refreshedBootstrap);
         applyBootstrapConfig(refreshedBootstrap);
