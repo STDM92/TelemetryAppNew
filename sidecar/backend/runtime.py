@@ -5,6 +5,7 @@ from typing import Awaitable, Callable
 
 from sidecar.telemetry.administrator import TelemetryStateAdministrator
 from sidecar.telemetry.contracts import TelemetryReceiver
+from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
 
 
 logger = logging.getLogger(__name__)
@@ -15,12 +16,14 @@ class DriverBackendRuntime:
         self,
         telemetry_source: TelemetryReceiver,
         publish_callback: Callable[[dict], Awaitable[None]] | None = None,
+        active_source: SelectedTelemetrySource | None = None,
         tick_hz: float = 60,
     ):
         self._telemetry_source = telemetry_source
         self._publish_callback = publish_callback
         self._tick_seconds = 1 / tick_hz
 
+        self._active_source = active_source
         self._administrator = TelemetryStateAdministrator()
         self._current_snapshot_dict: dict | None = None
         self._background_task: asyncio.Task | None = None
@@ -66,6 +69,10 @@ class DriverBackendRuntime:
         return {
             "status": self._status,
             "last_error": self._last_error,
+            "mode": self._active_source.mode.value if self._active_source is not None else None,
+            "sim": self._active_source.sim_kind.value if self._active_source is not None else None,
+            "source_kind": self._active_source.source_kind.value if self._active_source is not None else None,
+            "source_display_name": self._active_source.display_name if self._active_source is not None else None,
         }
 
     def _on_background_task_done(self, task: asyncio.Task) -> None:

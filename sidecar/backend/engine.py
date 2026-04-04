@@ -2,7 +2,6 @@ import argparse
 import logging
 import sys
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from pathlib import Path
 
 import uvicorn
@@ -10,11 +9,13 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from sidecar.backend.runtime import DriverBackendRuntime
-from sidecar.logging_config import configure_logging
 from sidecar.backend.websocket import WebSocketConnectionManager
-from sidecar.telemetry.sim_detection import DetectedSim, SimKind, detect_active_sim
-from sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
-from sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
+from sidecar.logging_config import configure_logging
+from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
+from sidecar.telemetry.adapter_registry import build_available_adapters
+from sidecar.telemetry.adapter_selection import select_live_adapter
+from sidecar.telemetry.contracts import TelemetryReceiver
+from sidecar.telemetry.modes import RuntimeMode, SourceKind, StartupRequest
 
 
 class StartupArgumentError(ValueError):
@@ -31,11 +32,10 @@ class StartupArgumentParser(argparse.ArgumentParser):
         raise SystemExit(status)
 
 
-@dataclass(frozen=True)
-class StartupConfig:
-    mode: str
-    file: str | None
-    port: int
+logger = logging.getLogger(__name__)
+
+runtime: DriverBackendRuntime | None = None
+manager = WebSocketConnectionManager()
 
 
 def _port_argument(value: str) -> int:
@@ -50,7 +50,7 @@ def _port_argument(value: str) -> int:
     return port
 
 
-def parse_startup_args(argv: list[str] | None = None) -> StartupConfig:
+def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
     parser = StartupArgumentParser(description="Telemetry Backend Engine")
     parser.add_argument(
         "--mode",
@@ -86,24 +86,52 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupConfig:
     elif file_path is not None:
         parser.error("--file is only valid when --mode is replay or analyze.")
 
-    return StartupConfig(mode=args.mode, file=file_path, port=args.port)
+    return StartupRequest(
+        mode=RuntimeMode(args.mode),
+        port=args.port,
+        file_path=Path(file_path) if file_path is not None else None,
+    )
 
 
-logger = logging.getLogger(__name__)
+def build_runtime_source(
+    request: StartupRequest,
+) -> tuple[TelemetryReceiver, SelectedTelemetrySource]:
+    adapters = build_available_adapters()
 
+    if request.mode is RuntimeMode.LIVE:
+        selection = select_live_adapter(request, adapters)
+        adapter = next(a for a in adapters if a.adapter_id == selection.adapter_id)
+        return adapter.build_live_source(request), selection.source
 
-def build_telemetry_source(config: StartupConfig, detected_sim: DetectedSim):
-    match config.mode, detected_sim.kind:
-        case ("live", SimKind.IRACING):
-            return IRacingReceiver()
-        case ("replay", SimKind.IRACING):
-            return IRacingReader(config.file)
-        case ("analyze", SimKind.IRACING):
-            return IRacingReader(config.file)
-        case _:
-            raise RuntimeError(
-                f"No telemetry source implemented for mode={config.mode} sim={detected_sim.kind.value}"
-            )
+    if request.mode in {RuntimeMode.ANALYZE, RuntimeMode.REPLAY}:
+        if request.file_path is None:
+            raise RuntimeError(f"{request.mode.value} mode requires a file_path.")
+
+        if not adapters:
+            raise RuntimeError("No telemetry adapters are registered.")
+
+        # Keep file-based modes intentionally simple for now.
+        # Replay stays minimally invasive so it can be removed later
+        # without reshaping the live adapter architecture.
+        # For now, reuse the first registered adapter's file path support.
+        # For now, use the first registered adapter because the current
+        # implementation is still effectively iRacing-only for file-based modes.
+        adapter = adapters[0]
+        source_kind = (
+            SourceKind.REPLAY_FILE
+            if request.mode is RuntimeMode.REPLAY
+            else SourceKind.FILE
+        )
+        selected_source = SelectedTelemetrySource(
+            sim_kind=adapter.sim_kind,
+            display_name=adapter.display_name,
+            mode=request.mode,
+            source_kind=source_kind,
+            file_path=request.file_path,
+        )
+        return adapter.build_file_source(request, request.file_path), selected_source
+
+    raise RuntimeError(f"Unsupported mode: {request.mode.value}")
 
 
 def configure_framework_logging() -> None:
@@ -120,12 +148,6 @@ def configure_framework_logging() -> None:
         framework_logger.handlers.clear()
         framework_logger.propagate = True
         framework_logger.setLevel(logging.INFO)
-
-
-logger = logging.getLogger(__name__)
-
-runtime: DriverBackendRuntime | None = None
-manager = WebSocketConnectionManager()
 
 
 @asynccontextmanager
@@ -153,6 +175,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -177,6 +200,7 @@ def get_current_state():
         return None
     return runtime.get_current_state()
 
+
 @app.get("/status")
 def get_current_status():
     if runtime is None:
@@ -191,36 +215,32 @@ def main(argv: list[str] | None = None) -> int:
         configure_framework_logging()
         logger.info("Configured logging. log_file=%s", log_file)
 
-        config = parse_startup_args(argv)
+        request = parse_startup_args(argv)
         logger.info(
             "Starting backend engine (mode=%s, port=%s, file=%s).",
-            config.mode,
-            config.port,
-            config.file,
+            request.mode.value,
+            request.port,
+            str(request.file_path) if request.file_path is not None else None,
         )
 
-        detected_sim = detect_active_sim(config)
+        telemetry_source, selected_source = build_runtime_source(request)
         logger.info(
-            "Active sim detected. sim_kind=%s sim_name=%s",
-            detected_sim.kind.value,
-            detected_sim.display_name,
-        )
-
-        active_parser = build_telemetry_source(config, detected_sim)
-        logger.info(
-            "Telemetry source initialized. sim=%s source=%s",
-            detected_sim.display_name,
-            type(active_parser).__name__,
+            "Telemetry source initialized. sim=%s mode=%s source_kind=%s source=%s",
+            selected_source.display_name,
+            selected_source.mode.value,
+            selected_source.source_kind.value,
+            type(telemetry_source).__name__,
         )
 
         global runtime
         runtime = DriverBackendRuntime(
-            telemetry_source=active_parser,
+            telemetry_source=telemetry_source,
             publish_callback=manager.broadcast,
+            active_source=selected_source,
         )
 
-        logger.info("Launching HTTP server on port %s.", config.port)
-        uvicorn.run(app, host="0.0.0.0", port=config.port, log_config=None)
+        logger.info("Launching HTTP server on port %s.", request.port)
+        uvicorn.run(app, host="0.0.0.0", port=request.port, log_config=None)
         return 0
     except StartupArgumentError as exc:
         logger.error("Backend startup configuration invalid: %s", exc)
@@ -232,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:
         logger.exception("Backend startup failed.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
