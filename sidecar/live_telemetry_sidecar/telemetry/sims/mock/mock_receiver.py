@@ -9,7 +9,7 @@ from typing import Any, get_args, get_origin, get_type_hints
 
 from websockets import connect
 
-from sidecar.telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
+from sidecar.live_telemetry_sidecar.telemetry.models.unified_snapshot import UnifiedTelemetrySnapshot
 
 
 logger = logging.getLogger(__name__)

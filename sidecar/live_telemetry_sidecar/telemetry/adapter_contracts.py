@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from sidecar.telemetry.contracts import TelemetryReceiver
-from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
+from sidecar.live_telemetry_sidecar.telemetry.contracts import TelemetryReceiver
+from sidecar.live_telemetry_sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 
 
 @dataclass(frozen=True)

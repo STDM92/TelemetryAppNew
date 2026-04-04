@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import subprocess
 
-from sidecar.telemetry.adapter_contracts import (
+from sidecar.live_telemetry_sidecar.telemetry.adapter_contracts import (
     AdapterCapabilities,
     ProbeResult,
     SelectedTelemetrySource,
 )
-from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
-from sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
+from sidecar.live_telemetry_sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
+from sidecar.live_telemetry_sidecar.telemetry.sims.iracing.iracing_receiver import IRacingReceiver
 
 
 def _is_windows_process_running(process_name: str) -> bool:

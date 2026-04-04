@@ -4,13 +4,13 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from sidecar.telemetry.adapter_contracts import (
+from sidecar.live_telemetry_sidecar.telemetry.adapter_contracts import (
     AdapterCapabilities,
     ProbeResult,
     SelectedTelemetrySource,
 )
-from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
-from sidecar.telemetry.sims.mock.mock_receiver import MockSimReceiver
+from sidecar.live_telemetry_sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
+from sidecar.live_telemetry_sidecar.telemetry.sims.mock.mock_receiver import MockSimReceiver
 
 
 class MockSimTelemetryAdapter:

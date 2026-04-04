@@ -7,13 +7,13 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from sidecar.backend.runtime import DriverBackendRuntime
-from sidecar.backend.websocket import WebSocketConnectionManager
-from sidecar.logging_config import configure_logging
-from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
-from sidecar.telemetry.adapter_registry import build_available_adapters
-from sidecar.telemetry.telemetry_source_manager import TelemetrySourceManager
-from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
+from sidecar.live_telemetry_sidecar.backend.runtime import DriverBackendRuntime
+from sidecar.live_telemetry_sidecar.backend.websocket import WebSocketConnectionManager
+from sidecar.live_telemetry_sidecar.logging_config import configure_logging
+from sidecar.live_telemetry_sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
+from sidecar.live_telemetry_sidecar.telemetry.adapter_registry import build_available_adapters
+from sidecar.live_telemetry_sidecar.telemetry.telemetry_source_manager import TelemetrySourceManager
+from sidecar.live_telemetry_sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 
 
 class StartupArgumentError(ValueError):

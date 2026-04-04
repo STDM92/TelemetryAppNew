@@ -4,9 +4,9 @@ import time
 from dataclasses import asdict
 from typing import Awaitable, Callable
 
-from sidecar.telemetry.administrator import TelemetryStateAdministrator
-from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
-from sidecar.telemetry.contracts import TelemetryReceiver
+from sidecar.live_telemetry_sidecar.telemetry.administrator import TelemetryStateAdministrator
+from sidecar.live_telemetry_sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
+from sidecar.live_telemetry_sidecar.telemetry.contracts import TelemetryReceiver
 
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, fields, is_dataclass, field
 
-from sidecar.telemetry.models.unified_snapshot import (
+from sidecar.live_telemetry_sidecar.telemetry.models.unified_snapshot import (
     UnifiedTelemetrySnapshot,
     SessionInfo,
     LapData,

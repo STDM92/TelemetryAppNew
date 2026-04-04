@@ -4,9 +4,9 @@ import logging
 import time
 from typing import Callable
 
-from sidecar.telemetry.adapter_contracts import SelectedTelemetrySource, TelemetryAdapter
-from sidecar.telemetry.contracts import TelemetryReceiver
-from sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
+from sidecar.live_telemetry_sidecar.telemetry.adapter_contracts import SelectedTelemetrySource, TelemetryAdapter
+from sidecar.live_telemetry_sidecar.telemetry.contracts import TelemetryReceiver
+from sidecar.live_telemetry_sidecar.telemetry.modes import SimKind, SourceKind, StartupRequest
 
 
 logger = logging.getLogger(__name__)

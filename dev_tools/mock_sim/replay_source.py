@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 from typing import Iterator
 
-from sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
+from sidecar.live_telemetry_sidecar.telemetry.sims.iracing.iracing_reader import IRacingReader
 
 
 class ReplayFrameSource:
