@@ -8,14 +8,21 @@ export type DashboardWidgetContext = {
 };
 
 export type WidgetId =
-    | "session-summary"
-    | "backend-status"
-    | "driver-inputs"
-    | "standings-info"
-    | "pit-info";
+  | "session-summary"
+  | "backend-status"
+  | "driver-inputs"
+  | "standings-info"
+  | "pit-info"
+  | "line-chart";
 
-export type WidgetDefinition = {
+export type WidgetDefinition<TConfig = unknown> = {
   id: WidgetId;
   title: string;
-  render: (context: DashboardWidgetContext) => ReactNode;
+  render: (context: DashboardWidgetContext, config?: TConfig) => ReactNode;
+};
+
+export type WidgetInstance<TConfig = unknown> = {
+  id?: string;
+  type: WidgetId;
+  config?: TConfig;
 };
