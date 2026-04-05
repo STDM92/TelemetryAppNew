@@ -18,7 +18,7 @@ class DriverBackendRuntime:
         telemetry_source: TelemetryReceiver,
         publish_callback: Callable[[dict], Awaitable[None]] | None = None,
         active_source: SelectedTelemetrySource | None = None,
-        tick_hz: float = 60,
+        tick_hz: float = 120,
         stale_after_s: float = 3.0,
     ):
         """
