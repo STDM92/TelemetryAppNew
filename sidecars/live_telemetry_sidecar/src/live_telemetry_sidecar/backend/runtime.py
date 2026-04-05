@@ -130,6 +130,15 @@ class DriverBackendRuntime:
     def get_status(self) -> dict:
         """
         Returns the current status of the backend runtime, including stream and attachment states.
+        Field discription:
+            - status: Current status of the backend runtime. "created", "running", "stopped", or "failed".
+            - last_error: The last error encountered by the backend runtime. "None" if no error has occurred.
+            - source_attachment_state: State of the source attachment. "none", "waiting", or "attached".
+            - stream_state: State of the telemetry stream. "failed", "idle", "stale", or "streaming".
+            - has_received_snapshot: Whether a telemetry snapshot has been received. "True" or "False".
+            - last_snapshot_at: Timestamp of the last received snapshot. "None" if no snapshot has been received.
+            - sim: Kind of simulation being used, if any. "iracing", "acc", "lmu", "f1", "mock", or "unknown".
+            - source_kind: Kind of source being used, if any. "mmap", "socket", "UDP", "websocket", or "unknown".
 
         :return: A dictionary containing status information.
         :rtype: dict

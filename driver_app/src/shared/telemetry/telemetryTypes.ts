@@ -1,7 +1,9 @@
 export type TelemetrySnapshot = {
   source?: string | null;
+  track_name?: string | null;
   session_phase?: string | null;
   current_lap?: number | null;
+  session_time_remaining_s?: number | null;
   vehicle_speed_kph?: number | null;
   gear?: number | null;
   throttle?: number | null;

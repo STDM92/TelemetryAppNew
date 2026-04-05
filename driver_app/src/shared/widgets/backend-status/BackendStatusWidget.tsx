@@ -1,12 +1,9 @@
 import React from "react";
-import { WidgetFrame } from "../../components/WidgetFrame";
+import { BackendStatusWidget } from "./BackendStatusWidget";
+import type { WidgetDefinition } from "../../dashboard/widgetTypes";
 
-export function BackendStatusWidget() {
-  return (
-    <WidgetFrame title="Backend Status">
-      <div className="placeholder-copy">
-        Shared backend widget placeholder. Later this can show source, connection health, mode, and update cadence.
-      </div>
-    </WidgetFrame>
-  );
-}
+export const backendStatusWidgetDefinition: WidgetDefinition = {
+    id: "backend-status",
+    title: "Backend Status",
+    render: () => <BackendStatusWidget />,
+};
