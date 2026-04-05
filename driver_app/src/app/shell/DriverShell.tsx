@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getBootstrapConfig } from "../bootstrap/getBootstrapConfig";
 import { getSidecarProcessState, type SidecarProcessState } from "../local-api/processClient";
 import { fetchBackendStatus, type BackendStatus } from "../local-api/statusClient";
-import { fetchCurrentState } from "../local-api/stateClient";
 import type { TelemetrySnapshot } from "../../shared/telemetry/telemetryTypes";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ShellHomePage } from "./pages/ShellHomePage";
 import { StartupPage, type StartupViewModel } from "./pages/StartupPage";
+import { connectTelemetryStream } from "../api/telemetryStreamClient";
 
 type ShellSurface = "startup" | "dashboard" | "control";
 
@@ -140,31 +140,6 @@ export function DriverShell() {
                 }
 
                 setBackendStatus(status);
-
-                if (
-                    status.status === "running" &&
-                    status.source_attachment_state === "attached" &&
-                    (status.stream_state === "streaming" || status.has_received_snapshot)
-                ) {
-                    try {
-                        const currentState = await fetchCurrentState(config.backendBaseUrl);
-
-                        if (isDisposed) {
-                            return;
-                        }
-
-                        setSnapshot(currentState);
-                    } catch {
-                        if (isDisposed) {
-                            return;
-                        }
-
-                        setSnapshot(null);
-                    }
-                } else {
-                    setSnapshot(null);
-                }
-
                 setErrorText(null);
             } catch (error) {
                 if (isDisposed) {
@@ -190,6 +165,52 @@ export function DriverShell() {
             }
         };
     }, []);
+
+    useEffect(() => {
+        let isDisposed = false;
+        let disconnect: (() => void) | null = null;
+
+        if (processState?.status !== "running") {
+            setSnapshot(null);
+            return;
+        }
+
+        if (
+            backendStatus?.status !== "running" ||
+            backendStatus.source_attachment_state !== "attached" ||
+            backendStatus.stream_state !== "streaming"
+        ) {
+            setSnapshot(null);
+            return;
+        }
+
+        void getBootstrapConfig().then((config) => {
+            if (isDisposed) {
+                return;
+            }
+
+            disconnect = connectTelemetryStream(config.backendWebSocketUrl, {
+                onSnapshot: (nextSnapshot) => {
+                    if (!isDisposed) {
+                        setSnapshot(nextSnapshot as TelemetrySnapshot | null);
+                    }
+                },
+                onClose: () => {
+                    if (!isDisposed) {
+                        setSnapshot(null);
+                    }
+                },
+                onError: () => {
+                    // Keep last snapshot visible while reconnect attempts happen.
+                },
+            });
+        });
+
+        return () => {
+            isDisposed = true;
+            disconnect?.();
+        };
+    }, [processState?.status, backendStatus?.status, backendStatus?.source_attachment_state]);
 
     const startupViewModel = useMemo(
         () =>
