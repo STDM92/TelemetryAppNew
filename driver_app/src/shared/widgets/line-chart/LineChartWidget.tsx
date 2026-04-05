@@ -11,7 +11,7 @@ type LineChartWidgetProps = {
 };
 
 const DEFAULT_COLOR = "#60a5fa";
-const SVG_WIDTH = 100;
+const SVG_WIDTH = 500;
 const SVG_HEIGHT = 48;
 const PADDING = 4;
 
@@ -109,7 +109,7 @@ export function LineChartWidget({
           <polyline
             fill="none"
             stroke={color}
-            strokeWidth="2"
+            strokeWidth="0.5"
             strokeLinejoin="round"
             strokeLinecap="round"
             points={points}

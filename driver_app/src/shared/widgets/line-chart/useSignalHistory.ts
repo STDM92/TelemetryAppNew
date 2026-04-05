@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function useSignalHistory(value: number | null | undefined, maxSamples = 50): number[] {
+export function useSignalHistory(value: number | null | undefined, maxSamples = 1): number[] {
   const [history, setHistory] = useState<number[]>([]);
 
   useEffect(() => {
