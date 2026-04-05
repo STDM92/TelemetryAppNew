@@ -3,14 +3,14 @@ use crate::driver_logging::{log_error, log_info, log_warn};
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-// activate the venv via "source .venv/bin/activate"
-
 const OUTPUT_TAIL_CAPACITY: usize = 200;
+const MACOS_PYTHON_COMMAND: &str = "python3";
+const MACOS_SIDECAR_MODULE: &str = "live_telemetry_sidecar";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -41,6 +41,19 @@ pub struct SidecarManager {
     stop_requested: bool,
     stdout_tail: Arc<Mutex<VecDeque<String>>>,
     stderr_tail: Arc<Mutex<VecDeque<String>>>,
+}
+
+#[derive(Debug, Clone)]
+enum SidecarLaunchTarget {
+    Executable {
+        executable_path: PathBuf,
+        working_dir: PathBuf,
+    },
+    PythonModule {
+        python_command: String,
+        module_name: String,
+        working_dir: PathBuf,
+    },
 }
 
 impl SidecarManager {
@@ -109,25 +122,15 @@ impl SidecarManager {
         }
 
         let repo_root = resolve_repo_root()?;
-        let executable_path =
-            resolve_sidecar_executable_path(&repo_root, &self.config.sidecar_executable_path)?;
-
-        log_info(&format!(
-            "Starting sidecar executable. path={} port={}",
-            executable_path.display(),
-            self.config.backend_port
-        ));
-
-        let mut command = Command::new(&executable_path);
-        command
-            .current_dir(&repo_root)
-            .arg("--port")
-            .arg(self.config.backend_port.to_string())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        let launch_target =
+            resolve_sidecar_launch_target(&repo_root, &self.config.sidecar_executable_path)?;
 
         clear_tail(&self.stdout_tail);
         clear_tail(&self.stderr_tail);
+
+        let mut command = build_sidecar_command(&launch_target, self.config.backend_port);
+
+        log_launch_target(&launch_target, self.config.backend_port);
 
         let mut child = command.spawn().map_err(|e| {
             let message = format!("Failed to start sidecar: {e}");
@@ -251,8 +254,57 @@ fn resolve_repo_root() -> Result<PathBuf, String> {
         .ok_or_else(|| "Failed to resolve repository root from src-tauri.".to_string())
 }
 
+fn resolve_sidecar_launch_target(
+    repo_root: &Path,
+    configured_path: &str,
+) -> Result<SidecarLaunchTarget, String> {
+    if cfg!(target_os = "macos") {
+        let macos_src_dir = resolve_macos_sidecar_src_dir(repo_root)?;
+        return Ok(SidecarLaunchTarget::PythonModule {
+            python_command: MACOS_PYTHON_COMMAND.to_string(),
+            module_name: MACOS_SIDECAR_MODULE.to_string(),
+            working_dir: macos_src_dir,
+        });
+    }
+
+    let executable_path = resolve_sidecar_executable_path(repo_root, configured_path)?;
+    Ok(SidecarLaunchTarget::Executable {
+        executable_path,
+        working_dir: repo_root.to_path_buf(),
+    })
+}
+
+fn resolve_macos_sidecar_src_dir(repo_root: &Path) -> Result<PathBuf, String> {
+    let src_dir = repo_root.join("sidecars/live_telemetry_sidecar/src");
+
+    if !src_dir.is_dir() {
+        return Err(format!(
+            "Expected macOS sidecar source directory was not found: {}",
+            src_dir.display()
+        ));
+    }
+
+    let package_dir = src_dir.join(MACOS_SIDECAR_MODULE);
+    if !package_dir.is_dir() {
+        return Err(format!(
+            "Expected macOS sidecar package directory was not found: {}",
+            package_dir.display()
+        ));
+    }
+
+    let main_file = package_dir.join("__main__.py");
+    if !main_file.is_file() {
+        return Err(format!(
+            "Expected macOS sidecar __main__.py was not found: {}",
+            main_file.display()
+        ));
+    }
+
+    Ok(src_dir)
+}
+
 fn resolve_sidecar_executable_path(
-    repo_root: &PathBuf,
+    repo_root: &Path,
     configured_path: &str,
 ) -> Result<PathBuf, String> {
     let candidate = PathBuf::from(configured_path);
@@ -271,6 +323,64 @@ fn resolve_sidecar_executable_path(
     }
 
     Ok(resolved)
+}
+
+fn build_sidecar_command(launch_target: &SidecarLaunchTarget, backend_port: u16) -> Command {
+    let mut command = match launch_target {
+        SidecarLaunchTarget::Executable { executable_path, .. } => Command::new(executable_path),
+        SidecarLaunchTarget::PythonModule {
+            python_command,
+            module_name,
+            ..
+        } => {
+            let mut cmd = Command::new(python_command);
+            cmd.arg("-m").arg(module_name);
+            cmd
+        }
+    };
+
+    let working_dir = match launch_target {
+        SidecarLaunchTarget::Executable { working_dir, .. } => working_dir,
+        SidecarLaunchTarget::PythonModule { working_dir, .. } => working_dir,
+    };
+
+    command
+        .current_dir(working_dir)
+        .arg("--port")
+        .arg(backend_port.to_string())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    command
+}
+
+fn log_launch_target(launch_target: &SidecarLaunchTarget, backend_port: u16) {
+    match launch_target {
+        SidecarLaunchTarget::Executable {
+            executable_path,
+            working_dir,
+        } => {
+            log_info(&format!(
+                "Starting sidecar executable. path={} cwd={} port={}",
+                executable_path.display(),
+                working_dir.display(),
+                backend_port
+            ));
+        }
+        SidecarLaunchTarget::PythonModule {
+            python_command,
+            module_name,
+            working_dir,
+        } => {
+            log_info(&format!(
+                "Starting sidecar Python module. python={} module={} cwd={} port={}",
+                python_command,
+                module_name,
+                working_dir.display(),
+                backend_port
+            ));
+        }
+    }
 }
 
 pub fn sync_manager_config(
