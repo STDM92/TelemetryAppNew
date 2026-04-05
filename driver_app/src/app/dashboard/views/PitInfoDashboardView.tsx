@@ -4,21 +4,22 @@ import type { TelemetrySnapshot } from "../../../shared/telemetry/telemetryTypes
 import { WidgetGrid } from "../../../shared/dashboard/WidgetGrid";
 import type { WidgetId } from "../../../shared/dashboard/widgetTypes";
 
-type TelemetryDashboardViewProps = {
+type PitInfoDashboardViewProps = {
     backendStatus: BackendStatus | null;
-    snapshot: TelemetrySnapshot | null;
+    snapshot: TelemetrySnapshot| null;
 };
 
-const telemetryWidgetIds: WidgetId[] = [
-    "driver-inputs",
+const pitInfoWidgetIds: WidgetId[] = [
+    "pit-info",
 ];
 
-export function TelemetryDashboardView({ backendStatus, snapshot }: TelemetryDashboardViewProps) {
+export function PitInfoDashboardView({ backendStatus, snapshot }: PitInfoDashboardViewProps) {
     return (
         <WidgetGrid
             backendStatus={backendStatus}
             snapshot={snapshot}
-            widgetIds={telemetryWidgetIds}
+            widgetIds={pitInfoWidgetIds}
         />
     );
 }
+

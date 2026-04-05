@@ -7,8 +7,15 @@ export type DashboardWidgetContext = {
   snapshot: TelemetrySnapshot | null;
 };
 
+export type WidgetId =
+    | "session-summary"
+    | "backend-status"
+    | "driver-inputs"
+    | "standings-info"
+    | "pit-info";
+
 export type WidgetDefinition = {
-  id: string;
+  id: WidgetId;
   title: string;
   render: (context: DashboardWidgetContext) => ReactNode;
 };

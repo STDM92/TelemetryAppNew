@@ -4,7 +4,7 @@ import type { TelemetrySnapshot } from "../../shared/telemetry/telemetryTypes";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardTopBar } from "./DashboardTopBar";
 import type { DashboardViewId } from "./dashboardTypes";
-import { PitsDashboardView } from "./views/PitsDashboardView";
+import { PitInfoDashboardView } from "./views/PitInfoDashboardView";
 import { SessionInfoDashboardView } from "./views/SessionInfoDashboardView";
 import { StandingsDashboardView } from "./views/StandingsDashboardView";
 import { TelemetryDashboardView } from "./views/TelemetryDashboardView";
@@ -20,9 +20,9 @@ export function DashboardShell({ backendStatus, snapshot }: DashboardShellProps)
     const content = useMemo(() => {
         switch (activeView) {
             case "standings":
-                return <StandingsDashboardView />;
+                return <StandingsDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
             case "pits":
-                return <PitsDashboardView />;
+                return <PitInfoDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
             case "sessionInfo":
                 return <SessionInfoDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
             case "telemetry":

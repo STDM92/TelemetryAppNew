@@ -1,18 +1,17 @@
 import React from "react";
 import type { BackendStatus } from "../../local-api/statusClient";
 import type { TelemetrySnapshot } from "../../../shared/telemetry/telemetryTypes";
-import { DashboardView } from "../../../shared/dashboard/DashboardView";
-import { backendStatusWidgetDefinition } from "../../../shared/widgets/backend-status/definition";
-import { sessionSummaryWidgetDefinition } from "../../../shared/widgets/session-summary/definition";
+import { WidgetGrid } from "../../../shared/dashboard/WidgetGrid";
+import type { WidgetId } from "../../../shared/dashboard/widgetTypes";
 
 type SessionInfoDashboardViewProps = {
     backendStatus: BackendStatus | null;
     snapshot: TelemetrySnapshot | null;
 };
 
-const sessionInfoWidgets = [
-    sessionSummaryWidgetDefinition,
-    backendStatusWidgetDefinition,
+const sessionInfoWidgetIds: WidgetId[] = [
+    "session-summary",
+    "backend-status",
 ];
 
 export function SessionInfoDashboardView({
@@ -20,10 +19,10 @@ export function SessionInfoDashboardView({
                                              snapshot,
                                          }: SessionInfoDashboardViewProps) {
     return (
-        <DashboardView
+        <WidgetGrid
             backendStatus={backendStatus}
             snapshot={snapshot}
-            widgets={sessionInfoWidgets}
+            widgetIds={sessionInfoWidgetIds}
         />
     );
 }
