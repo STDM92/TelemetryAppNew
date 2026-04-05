@@ -1,4 +1,4 @@
-# Mock Sim
+d# Mock Sim
 
 Dev-only external mock simulator for exercising the sidecar live pipeline.
 

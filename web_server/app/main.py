@@ -7,8 +7,13 @@ from app.api.routes.proposals import router as proposals_router
 from app.api.routes.runtime import router as runtime_router
 from app.api.routes.state import router as state_router
 from app.api.routes.ws import router as ws_router
+from app.core.connection_hub import ConnectionHub
+from app.core.session_registry import SessionRegistry
 
 app = FastAPI(title="Telemetry Web Server", version="0.1.0")
+
+app.state.session_registry = SessionRegistry()
+app.state.connection_hub = ConnectionHub()
 
 app.add_middleware(
     CORSMiddleware,

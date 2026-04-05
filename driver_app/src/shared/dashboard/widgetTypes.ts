@@ -26,4 +26,5 @@ export type WidgetInstance<TConfig = unknown> = {
   id?: string;
   type: WidgetId;
   config?: TConfig;
+  fullWidth?: boolean;
 };

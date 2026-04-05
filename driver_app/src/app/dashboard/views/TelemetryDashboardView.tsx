@@ -16,11 +16,12 @@ const telemetryWidgets: WidgetInstance<LineChartWidgetConfig>[] = [
   {
     id: "telemetry-inputs-chart",
     type: "line-chart",
+    fullWidth: true,
     config: {
       title: "Throttle / Brake",
       min: 0,
       max: 1,
-      maxSamples: 210,
+      maxSamples: 1000,
       displayMultiplier: 100,
       displaySuffix: "%",
       displayDecimals: 0,
@@ -41,14 +42,15 @@ const telemetryWidgets: WidgetInstance<LineChartWidgetConfig>[] = [
   {
     id: "telemetry-steering-chart",
     type: "line-chart",
+    fullWidth: true,
     config: {
       title: "Steering",
       sourcePath: "inputs.steering_angle_rad",
-      min: 7.85398,
-      max: 7.85398,
+      min: -2.0944,
+      max: 2.0944,
       color: "#f59e0b",
       zeroCentered: true,
-      maxSamples: 210,
+      maxSamples: 1000,
       displayMultiplier: (180 / Math.PI),
       displaySuffix: "°",
     },
@@ -56,12 +58,14 @@ const telemetryWidgets: WidgetInstance<LineChartWidgetConfig>[] = [
   {
     id: "telemetry-speed-chart",
     type: "line-chart",
+    fullWidth: true,
     config: {
       title: "Speed",
       sourcePath: "powertrain.vehicle_speed_kph",
       color: "#3b82f6",
       min: 0,
-      maxSamples: 210,
+      max: 300,
+      maxSamples: 1000,
     },
   },
 ];
