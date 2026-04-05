@@ -20,6 +20,9 @@ export function WidgetGrid({ backendStatus, snapshot, widgetIds }: WidgetGridPro
         <div className="widget-grid">
             {widgetIds.map((widgetId) => {
                 const widget = widgetCatalog[widgetId];
+                if (!widget) {
+                    return null;
+                }
                 return <React.Fragment key={widget.id}>{widget.render(context)}</React.Fragment>;
             })}
         </div>
