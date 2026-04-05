@@ -1,9 +1,9 @@
 import { getAppConfig, updateAppConfig } from "../api/configClient";
-import type { BootstrapConfig, SidecarProcessState } from "../../types/api";
 import { getSidecarProcessState } from "../api/processClient";
 import { fetchRuntimeStatus } from "../api/runtimeClient";
-import { fetchState } from "../api/stateClient";
+import type { BootstrapConfig, SidecarProcessState } from "../../types/api";
 import { getBootstrapConfig } from "../api/bootstrap";
+import { connectTelemetryStream } from "../api/telemetryStreamClient";
 
 function formatExcerpt(state: Record<string, unknown> | null): string {
   if (!state || typeof state !== "object") {
@@ -55,9 +55,12 @@ function renderProcessState(state: SidecarProcessState): string {
 }
 
 export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
+  const POLL_INTERVAL_MS = 1000;
+
   let currentBootstrap = config;
   let isConfigActionInFlight = false;
   let latestProcessState: SidecarProcessState | null = null;
+  let telemetryDisconnect: (() => void) | null = null;
 
   root.innerHTML = `
   <div class="app-shell">
@@ -120,21 +123,15 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
   const backendValue = document.getElementById("backend") as HTMLElement;
   const wsValue = document.getElementById("ws") as HTMLElement;
 
-  function applyBootstrapConfig(bootstrap: BootstrapConfig): void {
-    currentBootstrap = bootstrap;
-    modeValue.textContent = bootstrap.mode;
-    backendValue.textContent = bootstrap.backendBaseUrl;
-    wsValue.textContent = bootstrap.backendWebsocketUrl;
-  }
-
-  applyBootstrapConfig(config);
-
   const processState = document.getElementById("processState") as HTMLElement;
   const processStatusValue = document.getElementById("processStatusValue") as HTMLElement;
   const processPidValue = document.getElementById("processPidValue") as HTMLElement;
   const processExitCodeValue = document.getElementById("processExitCodeValue") as HTMLElement;
   const processLastErrorValue = document.getElementById("processLastErrorValue") as HTMLElement;
   const processLastExitReasonValue = document.getElementById("processLastExitReasonValue") as HTMLElement;
+  const statusValue = document.getElementById("statusValue") as HTMLElement;
+  const statusError = document.getElementById("statusError") as HTMLElement;
+  const stateExcerpt = document.getElementById("stateExcerpt") as HTMLElement;
 
   const sidecarExecutablePathInput = document.getElementById(
       "sidecarExecutablePathInput"
@@ -142,6 +139,13 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
   const backendPortInput = document.getElementById("backendPortInput") as HTMLInputElement;
   const saveConfigButton = document.getElementById("saveConfigButton") as HTMLButtonElement;
   const configStatusText = document.getElementById("configStatusText") as HTMLElement;
+
+  function applyBootstrapConfig(bootstrap: BootstrapConfig): void {
+    currentBootstrap = bootstrap;
+    modeValue.textContent = bootstrap.mode;
+    backendValue.textContent = bootstrap.backendBaseUrl;
+    wsValue.textContent = bootstrap.backendWebsocketUrl;
+  }
 
   function updateButtons(): void {
     saveConfigButton.disabled = isConfigActionInFlight;
@@ -155,6 +159,37 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
     processExitCodeValue.textContent = state.exitCode == null ? "—" : String(state.exitCode);
     processLastErrorValue.textContent = state.lastError ?? "—";
     processLastExitReasonValue.textContent = state.lastExitReason ?? "—";
+  }
+
+  function applyTelemetrySnapshot(snapshot: Record<string, unknown> | null): void {
+    stateExcerpt.textContent = formatExcerpt(snapshot);
+  }
+
+  function stopTelemetryStream(): void {
+    telemetryDisconnect?.();
+    telemetryDisconnect = null;
+  }
+
+  function ensureTelemetryStream(): void {
+    if (telemetryDisconnect) {
+      return;
+    }
+
+    stateExcerpt.textContent = "Connecting to telemetry stream...";
+    telemetryDisconnect = connectTelemetryStream(currentBootstrap.backendWebsocketUrl, {
+      onOpen: () => {
+        stateExcerpt.textContent = "Waiting for telemetry frame...";
+      },
+      onSnapshot: (snapshot) => {
+        applyTelemetrySnapshot(snapshot);
+      },
+      onClose: () => {
+        stateExcerpt.textContent = "Telemetry stream disconnected. Reconnecting...";
+      },
+      onError: () => {
+        stateExcerpt.textContent = "Telemetry stream error. Waiting to reconnect...";
+      },
+    });
   }
 
   async function loadAppConfig(): Promise<void> {
@@ -181,9 +216,42 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
     }
   }
 
+  async function refreshRuntimeStatus(): Promise<void> {
+    await refreshProcessState();
+
+    if (latestProcessState?.status !== "running") {
+      statusValue.textContent = "not_running";
+      statusError.textContent = latestProcessState?.lastError ?? "—";
+      stopTelemetryStream();
+      stateExcerpt.textContent = "Sidecar process is not running.";
+      return;
+    }
+
+    try {
+      const status = await fetchRuntimeStatus(currentBootstrap.backendBaseUrl);
+      statusValue.textContent = status.status;
+      statusError.textContent = status.last_error ?? "—";
+
+      if (status.status !== "attached" && status.status !== "streaming") {
+        stopTelemetryStream();
+        stateExcerpt.textContent = "No telemetry source attached yet.";
+        return;
+      }
+
+      ensureTelemetryStream();
+    } catch (error) {
+      statusValue.textContent = "unreachable";
+      statusError.textContent = String(error);
+      stopTelemetryStream();
+      stateExcerpt.textContent = "Failed to connect to telemetry stream.";
+    }
+  }
+
   saveConfigButton.addEventListener("click", () => {
     void (async () => {
-      if (isConfigActionInFlight) return;
+      if (isConfigActionInFlight) {
+        return;
+      }
 
       isConfigActionInFlight = true;
       configStatusText.textContent = "Applying config...";
@@ -212,6 +280,8 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
 
         const refreshedBootstrap = await getBootstrapConfig();
         applyBootstrapConfig(refreshedBootstrap);
+        stopTelemetryStream();
+        await refreshRuntimeStatus();
       } catch (error) {
         configStatusText.textContent = `Failed to apply config: ${String(error)}`;
       } finally {
@@ -221,32 +291,9 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
     })();
   });
 
-  async function refresh(): Promise<void> {
-    const statusValue = document.getElementById("statusValue") as HTMLElement;
-    const statusError = document.getElementById("statusError") as HTMLElement;
-    const stateExcerpt = document.getElementById("stateExcerpt") as HTMLElement;
-
-    try {
-      const status = await fetchRuntimeStatus(currentBootstrap.backendBaseUrl);
-      statusValue.textContent = status.status;
-      statusError.textContent = status.last_error ?? "—";
-    } catch (error) {
-      statusValue.textContent = "unreachable";
-      statusError.textContent = String(error);
-    }
-
-    try {
-      const state = await fetchState(currentBootstrap.backendBaseUrl);
-      stateExcerpt.textContent = formatExcerpt(state as Record<string, unknown> | null);
-    } catch (error) {
-      stateExcerpt.textContent = `Failed to load state: ${String(error)}`;
-    }
-  }
-
-  void refresh();
-  void loadAppConfig();
-  void refreshProcessState();
+  applyBootstrapConfig(config);
   updateButtons();
-  window.setInterval(() => void refresh(), 1000);
-  window.setInterval(() => void refreshProcessState(), 1000);
+  void loadAppConfig();
+  void refreshRuntimeStatus();
+  window.setInterval(() => void refreshRuntimeStatus(), POLL_INTERVAL_MS);
 }
