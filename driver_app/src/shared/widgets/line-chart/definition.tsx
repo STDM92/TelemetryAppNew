@@ -1,16 +1,12 @@
 import React from "react";
 import type { WidgetDefinition } from "../../dashboard/widgetTypes";
-import type { TelemetrySnapshot } from "../../telemetry/telemetryTypes";
+import { getNumericTelemetryValue } from "../../telemetry/getNumericTelemetryValue";
 import { LineChartWidget } from "./LineChartWidget";
 import { useSignalHistory } from "./useSignalHistory";
 
-export type NumericTelemetryKey = {
-  [K in keyof TelemetrySnapshot]: TelemetrySnapshot[K] extends number | null | undefined ? K : never;
-}[keyof TelemetrySnapshot];
-
 export type LineChartWidgetConfig = {
   title?: string;
-  sourceKey: NumericTelemetryKey;
+  sourcePath: string;
   min?: number;
   max?: number;
   color?: string;
@@ -19,7 +15,7 @@ export type LineChartWidgetConfig = {
 };
 
 type LineChartWidgetRendererProps = {
-  snapshotValue: number | null | undefined;
+  snapshotValue: number | null;
   config?: LineChartWidgetConfig;
 };
 
@@ -42,10 +38,7 @@ export const lineChartWidgetDefinition: WidgetDefinition<LineChartWidgetConfig> 
   id: "line-chart",
   title: "Line Chart",
   render: (context, config) => {
-    // Hooks must not be used directly inside this render callback.
-    // Keep hook usage inside a dedicated React component.
-    const rawValue = config && context.snapshot ? context.snapshot[config.sourceKey] : null;
-    const snapshotValue = typeof rawValue === "number" ? rawValue : null;
+    const snapshotValue = config ? getNumericTelemetryValue(context.snapshot, config.sourcePath) : null;
 
     return <LineChartWidgetRenderer snapshotValue={snapshotValue} config={config} />;
   },

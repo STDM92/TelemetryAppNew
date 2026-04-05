@@ -6,7 +6,7 @@ import { standingsInfoWidgetDefinition } from "../widgets/standings-info/definit
 import { pitInfoWidgetDefinition } from "../widgets/pit-info/definition";
 import { lineChartWidgetDefinition } from "../widgets/line-chart/definition";
 
-export const widgetCatalog: Record<WidgetId, WidgetDefinition> = {
+export const widgetCatalog: Record<WidgetId, WidgetDefinition<any>> = {
   "session-summary": sessionSummaryWidgetDefinition,
   "backend-status": backendStatusWidgetDefinition,
   "driver-inputs": driverInputsWidgetDefinition,

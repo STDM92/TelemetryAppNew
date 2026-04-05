@@ -1,0 +1,611 @@
+--- /dev/null	2026-04-05 12:38:22.636909167 +0000
++++ /tmp/driver_app/driver_app/src/shared/telemetry/telemetryTypes.ts	2026-04-05 12:43:15.811409958 +0000
+@@ -0,0 +1,193 @@
++export type NullableNumber = number | null;
++export type NullableString = string | null;
++
++export type TireTemperatureTriplet = {
++  left_c: NullableNumber;
++  center_c: NullableNumber;
++  right_c: NullableNumber;
++};
++
++export type TireWearTriplet = {
++  left_ratio: NullableNumber;
++  center_ratio: NullableNumber;
++  right_ratio: NullableNumber;
++};
++
++export type TireData = {
++  cold_pressure_kpa: NullableNumber;
++  live_pressure_kpa: NullableNumber;
++  carcass_temp_c: TireTemperatureTriplet | null;
++  surface_temp_c: TireTemperatureTriplet | null;
++  wear_ratio: TireWearTriplet | null;
++  tread_remaining_ratio: NullableNumber;
++  compound_code: number | null;
++  odometer_m: NullableNumber;
++};
++
++export type BrakeCornerData = {
++  line_pressure_bar: NullableNumber;
++  disc_temp_c: NullableNumber;
++};
++
++export type SuspensionCornerData = {
++  ride_height_mm: NullableNumber;
++  damper_position_mm: NullableNumber;
++  damper_velocity_mm_s: NullableNumber;
++  suspension_deflection_mm: NullableNumber;
++  wheel_load_n: NullableNumber;
++  wheel_speed_kph: NullableNumber;
++};
++
++export type Vector3 = {
++  x: NullableNumber;
++  y: NullableNumber;
++  z: NullableNumber;
++};
++
++export type OrientationData = {
++  yaw_rad: NullableNumber;
++  pitch_rad: NullableNumber;
++  roll_rad: NullableNumber;
++};
++
++export type AngularRateData = {
++  yaw_rad_s: NullableNumber;
++  pitch_rad_s: NullableNumber;
++  roll_rad_s: NullableNumber;
++};
++
++export type TrackMapCar = {
++  car_index: number | null;
++  overall_position: number | null;
++  class_position: number | null;
++  lap_distance_ratio: NullableNumber;
++  estimated_lap_time_to_marker_s: NullableNumber;
++  is_on_pit_road: boolean | null;
++  track_location: NullableString;
++  track_surface: NullableString;
++  last_lap_time_s: NullableNumber;
++  best_lap_time_s: NullableNumber;
++};
++
++export type TelemetrySnapshot = {
++  source: NullableString;
++  timestamp: number | null;
++  session: {
++    simulator_name: NullableString;
++    track_name: NullableString;
++    session_type: NullableString;
++    session_phase: NullableString;
++    session_flags: NullableString;
++    session_time_s: NullableNumber;
++    session_time_remaining_s: NullableNumber;
++    session_laps_total: number | null;
++    session_laps_remaining: number | null;
++    is_on_track: boolean | null;
++    is_on_pit_road: boolean | null;
++    is_in_garage: boolean | null;
++  } | null;
++  lap: {
++    current_lap: number | null;
++    completed_laps: number | null;
++    lap_distance_m: NullableNumber;
++    lap_distance_ratio: NullableNumber;
++    current_lap_time_s: NullableNumber;
++    last_lap_time_s: NullableNumber;
++    best_lap_time_s: NullableNumber;
++    optimal_lap_time_s: NullableNumber;
++    delta_to_best_lap_s: NullableNumber;
++    delta_to_optimal_lap_s: NullableNumber;
++    delta_to_session_best_lap_s: NullableNumber;
++    delta_to_best_lap_valid: boolean | null;
++    delta_to_optimal_lap_valid: boolean | null;
++    delta_to_session_best_lap_valid: boolean | null;
++  } | null;
++  race: {
++    overall_position: number | null;
++    class_position: number | null;
++    car_index: number | null;
++    gap_ahead_s: NullableNumber;
++    gap_behind_s: NullableNumber;
++    distance_ahead_m: NullableNumber;
++    distance_behind_m: NullableNumber;
++  } | null;
++  inputs: {
++    throttle_ratio: NullableNumber;
++    brake_ratio: NullableNumber;
++    clutch_ratio: NullableNumber;
++    steering_angle_rad: NullableNumber;
++    handbrake_ratio: NullableNumber;
++  } | null;
++  powertrain: {
++    gear: number | null;
++    engine_speed_rpm: NullableNumber;
++    vehicle_speed_kph: NullableNumber;
++    fuel_remaining_l: NullableNumber;
++    fuel_remaining_ratio: NullableNumber;
++    fuel_use_per_hour: NullableNumber;
++    oil_temp_c: NullableNumber;
++    oil_pressure_bar: NullableNumber;
++    water_temp_c: NullableNumber;
++    water_level_l: NullableNumber;
++    fuel_pressure_bar: NullableNumber;
++    voltage_v: NullableNumber;
++  } | null;
++  tires: {
++    left_front: TireData | null;
++    right_front: TireData | null;
++    left_rear: TireData | null;
++    right_rear: TireData | null;
++  } | null;
++  brakes: {
++    brake_bias_ratio: NullableNumber;
++    abs_setting: number | null;
++    abs_active: boolean | null;
++    left_front: BrakeCornerData | null;
++    right_front: BrakeCornerData | null;
++    left_rear: BrakeCornerData | null;
++    right_rear: BrakeCornerData | null;
++  } | null;
++  suspension: {
++    left_front: SuspensionCornerData | null;
++    right_front: SuspensionCornerData | null;
++    left_rear: SuspensionCornerData | null;
++    right_rear: SuspensionCornerData | null;
++  } | null;
++  dynamics: {
++    velocity_mps: Vector3 | null;
++    acceleration_mps2: Vector3 | null;
++    orientation: OrientationData | null;
++    angular_rate: AngularRateData | null;
++    steering_torque_nm: NullableNumber;
++    steering_torque_pct: NullableNumber;
++    lateral_accel_g: NullableNumber;
++    longitudinal_accel_g: NullableNumber;
++    vertical_accel_g: NullableNumber;
++  } | null;
++  environment: {
++    air_temp_c: NullableNumber;
++    track_temp_c: NullableNumber;
++    relative_humidity_ratio: NullableNumber;
++    air_pressure_pa: NullableNumber;
++    air_density_kg_m3: NullableNumber;
++    wind_speed_mps: NullableNumber;
++    wind_direction_rad: NullableNumber;
++    sky_condition: NullableString;
++    precipitation_ratio: NullableNumber;
++    fog_ratio: NullableNumber;
++    surface_wetness: NullableString;
++    wet_tires_allowed: boolean | null;
++  } | null;
++  pit: {
++    pit_service_status: NullableString;
++    pit_stop_active: boolean | null;
++    required_repair_time_s: NullableNumber;
++    optional_repair_time_s: NullableNumber;
++    fast_repairs_used: number | null;
++    fast_repairs_remaining: number | null;
++  } | null;
++  track_map: {
++    player_car_index: number | null;
++    cars: TrackMapCar[];
++  } | null;
++};
+--- /dev/null	2026-04-05 12:38:22.636909167 +0000
++++ /tmp/driver_app/driver_app/src/shared/telemetry/getNumericTelemetryValue.ts	2026-04-05 12:43:15.822649042 +0000
+@@ -0,0 +1,34 @@
++import type { TelemetrySnapshot } from "./telemetryTypes";
++
++function isRecord(value: unknown): value is Record<string, unknown> {
++  return typeof value === "object" && value !== null && !Array.isArray(value);
++}
++
++export function getTelemetryValueAtPath(snapshot: TelemetrySnapshot | null, path: string): unknown {
++  if (!snapshot || !path) {
++    return null;
++  }
++
++  const segments = path.split(".").filter(Boolean);
++  let current: unknown = snapshot;
++
++  for (const segment of segments) {
++    if (!isRecord(current) || !(segment in current)) {
++      return null;
++    }
++
++    current = current[segment];
++  }
++
++  return current;
++}
++
++export function getNumericTelemetryValue(snapshot: TelemetrySnapshot | null, path: string): number | null {
++  const value = getTelemetryValueAtPath(snapshot, path);
++
++  if (typeof value !== "number" || Number.isNaN(value)) {
++    return null;
++  }
++
++  return value;
++}
+--- /dev/null	2026-04-05 12:38:22.636909167 +0000
++++ /tmp/driver_app/driver_app/src/shared/widgets/line-chart/definition.tsx	2026-04-05 12:43:15.834059286 +0000
+@@ -0,0 +1,45 @@
++import React from "react";
++import type { WidgetDefinition } from "../../dashboard/widgetTypes";
++import { getNumericTelemetryValue } from "../../telemetry/getNumericTelemetryValue";
++import { LineChartWidget } from "./LineChartWidget";
++import { useSignalHistory } from "./useSignalHistory";
++
++export type LineChartWidgetConfig = {
++  title?: string;
++  sourcePath: string;
++  min?: number;
++  max?: number;
++  color?: string;
++  zeroCentered?: boolean;
++  maxSamples?: number;
++};
++
++type LineChartWidgetRendererProps = {
++  snapshotValue: number | null;
++  config?: LineChartWidgetConfig;
++};
++
++function LineChartWidgetRenderer({ snapshotValue, config }: LineChartWidgetRendererProps) {
++  const history = useSignalHistory(snapshotValue, config?.maxSamples ?? 50);
++
++  return (
++    <LineChartWidget
++      title={config?.title ?? "Line Chart"}
++      data={history}
++      min={config?.min}
++      max={config?.max}
++      color={config?.color}
++      zeroCentered={config?.zeroCentered}
++    />
++  );
++}
++
++export const lineChartWidgetDefinition: WidgetDefinition<LineChartWidgetConfig> = {
++  id: "line-chart",
++  title: "Line Chart",
++  render: (context, config) => {
++    const snapshotValue = config ? getNumericTelemetryValue(context.snapshot, config.sourcePath) : null;
++
++    return <LineChartWidgetRenderer snapshotValue={snapshotValue} config={config} />;
++  },
++};
+--- /dev/null	2026-04-05 12:38:22.636909167 +0000
++++ /tmp/driver_app/driver_app/src/app/dashboard/views/TelemetryDashboardView.tsx	2026-04-05 12:43:15.845369524 +0000
+@@ -0,0 +1,64 @@
++import React from "react";
++import type { BackendStatus } from "../../local-api/statusClient";
++import type { TelemetrySnapshot } from "../../../shared/telemetry/telemetryTypes";
++import { WidgetGrid } from "../../../shared/dashboard/WidgetGrid";
++import type { WidgetInstance } from "../../../shared/dashboard/widgetTypes";
++import type { LineChartWidgetConfig } from "../../../shared/widgets/line-chart/definition";
++
++type TelemetryDashboardViewProps = {
++  backendStatus: BackendStatus | null;
++  snapshot: TelemetrySnapshot | null;
++};
++
++const telemetryWidgets: WidgetInstance<LineChartWidgetConfig>[] = [
++  {
++    id: "telemetry-throttle-chart",
++    type: "line-chart",
++    config: {
++      title: "Throttle",
++      sourcePath: "inputs.throttle_ratio",
++      color: "#22c55e",
++      min: 0,
++      max: 1,
++      maxSamples: 50,
++    },
++  },
++  {
++    id: "telemetry-brake-chart",
++    type: "line-chart",
++    config: {
++      title: "Brake",
++      sourcePath: "inputs.brake_ratio",
++      color: "#ef4444",
++      min: 0,
++      max: 1,
++      maxSamples: 50,
++    },
++  },
++  {
++    id: "telemetry-steering-chart",
++    type: "line-chart",
++    config: {
++      title: "Steering",
++      sourcePath: "inputs.steering_angle_rad",
++      color: "#f59e0b",
++      zeroCentered: true,
++      maxSamples: 50,
++    },
++  },
++  {
++    id: "telemetry-speed-chart",
++    type: "line-chart",
++    config: {
++      title: "Speed",
++      sourcePath: "powertrain.vehicle_speed_kph",
++      color: "#3b82f6",
++      min: 0,
++      maxSamples: 50,
++    },
++  },
++];
++
++export function TelemetryDashboardView({ backendStatus, snapshot }: TelemetryDashboardViewProps) {
++  return <WidgetGrid backendStatus={backendStatus} snapshot={snapshot} widgets={telemetryWidgets} />;
++}
+--- /dev/null	2026-04-05 12:38:22.636909167 +0000
++++ /tmp/driver_app/driver_app/src/shared/widgets/session-summary/SessionSummaryWidget.tsx	2026-04-05 12:43:15.863223218 +0000
+@@ -0,0 +1,115 @@
++import React from "react";
++import type { BackendStatus } from "../../../app/local-api/statusClient";
++import type { TelemetrySnapshot } from "../../telemetry/telemetryTypes";
++import { WidgetFrame } from "../../components/WidgetFrame";
++
++type SessionSummaryWidgetProps = {
++  backendStatus: BackendStatus | null;
++  snapshot: TelemetrySnapshot | null;
++};
++
++function formatNumber(value: number | null | undefined, digits = 0): string {
++  if (value === null || value === undefined || Number.isNaN(value)) {
++    return "—";
++  }
++
++  return value.toFixed(digits);
++}
++
++function formatConnectionText(backendStatus: BackendStatus | null): string {
++  if (!backendStatus) {
++    return "Unknown";
++  }
++
++  if (backendStatus.source_attachment_state === "attached") {
++    return backendStatus.source_display_name ?? backendStatus.sim ?? "Connected";
++  }
++
++  if (backendStatus.source_attachment_state === "waiting") {
++    return "Waiting for simulator";
++  }
++
++  return "Disconnected";
++}
++
++function formatPosition(overallPosition: number | null | undefined, classPosition: number | null | undefined): string {
++  if (overallPosition === null || overallPosition === undefined) {
++    return "—";
++  }
++
++  if (classPosition === null || classPosition === undefined) {
++    return `P${overallPosition}`;
++  }
++
++  return `P${overallPosition} / Class P${classPosition}`;
++}
++
++export function SessionSummaryWidget({ backendStatus, snapshot }: SessionSummaryWidgetProps) {
++  return (
++    <WidgetFrame title="Session Summary">
++      <div className="kv-list">
++        <div className="kv-row">
++          <span className="kv-row__label">Connection</span>
++          <span className="kv-row__value">{formatConnectionText(backendStatus)}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Source</span>
++          <span className="kv-row__value">{snapshot?.source ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Simulator</span>
++          <span className="kv-row__value">{snapshot?.session?.simulator_name ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Track</span>
++          <span className="kv-row__value">{snapshot?.session?.track_name ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Session Type</span>
++          <span className="kv-row__value">{snapshot?.session?.session_type ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Session Phase</span>
++          <span className="kv-row__value">{snapshot?.session?.session_phase ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Current Lap</span>
++          <span className="kv-row__value">{snapshot?.lap?.current_lap ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Completed Laps</span>
++          <span className="kv-row__value">{snapshot?.lap?.completed_laps ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Speed</span>
++          <span className="kv-row__value">{formatNumber(snapshot?.powertrain?.vehicle_speed_kph, 1)} kph</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Gear</span>
++          <span className="kv-row__value">{snapshot?.powertrain?.gear ?? "—"}</span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Position</span>
++          <span className="kv-row__value">
++            {formatPosition(snapshot?.race?.overall_position, snapshot?.race?.class_position)}
++          </span>
++        </div>
++
++        <div className="kv-row">
++          <span className="kv-row__label">Stream</span>
++          <span className="kv-row__value">{backendStatus?.stream_state ?? "—"}</span>
++        </div>
++      </div>
++    </WidgetFrame>
++  );
++}
+--- /dev/null	2026-04-05 12:38:22.636909167 +0000
++++ /tmp/driver_app/driver_app/src/app/dashboard/DashboardTopBar.tsx	2026-04-05 12:43:15.874658656 +0000
+@@ -0,0 +1,123 @@
++import React from "react";
++import type { BackendStatus } from "../local-api/statusClient";
++import type { TelemetrySnapshot } from "../../shared/telemetry/telemetryTypes";
++
++type DashboardTopBarProps = {
++  backendStatus: BackendStatus | null;
++  snapshot: TelemetrySnapshot | null;
++};
++
++function formatConnectionText(backendStatus: BackendStatus | null): string {
++  if (!backendStatus) {
++    return "Unknown";
++  }
++
++  if (backendStatus.source_attachment_state === "attached") {
++    return backendStatus.source_display_name ?? backendStatus.sim ?? "Connected";
++  }
++
++  if (backendStatus.source_attachment_state === "waiting") {
++    return "Waiting for simulator";
++  }
++
++  return "Disconnected";
++}
++
++function formatTrackText(snapshot: TelemetrySnapshot | null): string {
++  return snapshot?.session?.track_name ?? "Unknown track";
++}
++
++function formatSessionText(snapshot: TelemetrySnapshot | null): string {
++  const sessionType = snapshot?.session?.session_type;
++  const sessionPhase = snapshot?.session?.session_phase;
++
++  if (sessionType && sessionPhase) {
++    return `${sessionType} · ${sessionPhase}`;
++  }
++
++  return sessionType ?? sessionPhase ?? "Unknown session";
++}
++
++function formatLapText(snapshot: TelemetrySnapshot | null): string {
++  const currentLap = snapshot?.lap?.current_lap;
++  if (currentLap === null || currentLap === undefined) {
++    return "Lap —";
++  }
++
++  return `Lap ${currentLap}`;
++}
++
++function formatTimeLeftText(snapshot: TelemetrySnapshot | null): string {
++  const seconds = snapshot?.session?.session_time_remaining_s;
++  if (seconds === null || seconds === undefined || seconds < 0 || Number.isNaN(seconds)) {
++    return "Time —";
++  }
++
++  const wholeSeconds = Math.floor(seconds);
++  const hours = Math.floor(wholeSeconds / 3600);
++  const minutes = Math.floor((wholeSeconds % 3600) / 60);
++  const remSeconds = wholeSeconds % 60;
++
++  if (hours > 0) {
++    return `Time ${hours}:${String(minutes).padStart(2, "0")}:${String(remSeconds).padStart(2, "0")}`;
++  }
++
++  return `Time ${minutes}:${String(remSeconds).padStart(2, "0")}`;
++}
++
++function formatPitRoadText(snapshot: TelemetrySnapshot | null): string {
++  const isOnPitRoad = snapshot?.session?.is_on_pit_road;
++
++  if (isOnPitRoad === null || isOnPitRoad === undefined) {
++    return "Unknown";
++  }
++
++  return isOnPitRoad ? "On pit road" : "Track";
++}
++
++export function DashboardTopBar({ backendStatus, snapshot }: DashboardTopBarProps) {
++  return (
++    <header className="dashboard-topbar">
++      <div className="dashboard-topbar__group">
++        <div className="dashboard-topbar__brand">Live Telemetry</div>
++      </div>
++
++      <div className="dashboard-topbar__metrics">
++        <div className="dashboard-chip">
++          <span className="dashboard-chip__label">Connection</span>
++          <span className="dashboard-chip__value">{formatConnectionText(backendStatus)}</span>
++        </div>
++
++        <div className="dashboard-chip">
++          <span className="dashboard-chip__label">Track</span>
++          <span className="dashboard-chip__value">{formatTrackText(snapshot)}</span>
++        </div>
++
++        <div className="dashboard-chip">
++          <span className="dashboard-chip__label">Session</span>
++          <span className="dashboard-chip__value">{formatSessionText(snapshot)}</span>
++        </div>
++
++        <div className="dashboard-chip">
++          <span className="dashboard-chip__label">Progress</span>
++          <span className="dashboard-chip__value">{formatLapText(snapshot)}</span>
++        </div>
++
++        <div className="dashboard-chip">
++          <span className="dashboard-chip__label">Remaining</span>
++          <span className="dashboard-chip__value">{formatTimeLeftText(snapshot)}</span>
++        </div>
++
++        <div className="dashboard-chip">
++          <span className="dashboard-chip__label">Pit Road</span>
++          <span className="dashboard-chip__value">{formatPitRoadText(snapshot)}</span>
++        </div>
++
++        <div className="dashboard-chip">
++          <span className="dashboard-chip__label">Stream</span>
++          <span className="dashboard-chip__value">{backendStatus?.stream_state ?? "unknown"}</span>
++        </div>
++      </div>
++    </header>
++  );
++}
+--- /dev/null	2026-04-05 12:38:22.636909167 +0000
++++ /tmp/driver_app/driver_app/src/shared/dashboard/widgetCatalog.ts	2026-04-05 12:43:45.347432053 +0000
+@@ -0,0 +1,16 @@
++import type { WidgetDefinition, WidgetId } from "./widgetTypes";
++import { backendStatusWidgetDefinition } from "../widgets/backend-status/definition";
++import { driverInputsWidgetDefinition } from "../widgets/driver-inputs/definition";
++import { sessionSummaryWidgetDefinition } from "../widgets/session-summary/definition";
++import { standingsInfoWidgetDefinition } from "../widgets/standings-info/definition";
++import { pitInfoWidgetDefinition } from "../widgets/pit-info/definition";
++import { lineChartWidgetDefinition } from "../widgets/line-chart/definition";
++
++export const widgetCatalog: Record<WidgetId, WidgetDefinition<any>> = {
++  "session-summary": sessionSummaryWidgetDefinition,
++  "backend-status": backendStatusWidgetDefinition,
++  "driver-inputs": driverInputsWidgetDefinition,
++  "standings-info": standingsInfoWidgetDefinition,
++  "pit-info": pitInfoWidgetDefinition,
++  "line-chart": lineChartWidgetDefinition,
++};
