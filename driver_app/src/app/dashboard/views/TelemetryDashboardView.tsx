@@ -2,12 +2,23 @@ import React from "react";
 import type { BackendStatus } from "../../local-api/statusClient";
 import type { TelemetrySnapshot } from "../../../shared/telemetry/telemetryTypes";
 import { DashboardView } from "../../../shared/dashboard/DashboardView";
+import { driverInputsWidgetDefinition } from "../../../shared/widgets/driver-inputs/definition";
 
 type TelemetryDashboardViewProps = {
     backendStatus: BackendStatus | null;
     snapshot: TelemetrySnapshot | null;
 };
 
+const telemetryWidgets = [
+    driverInputsWidgetDefinition,
+];
+
 export function TelemetryDashboardView({ backendStatus, snapshot }: TelemetryDashboardViewProps) {
-    return <DashboardView backendStatus={backendStatus} snapshot={snapshot} />;
+    return (
+        <DashboardView
+            backendStatus={backendStatus}
+            snapshot={snapshot}
+            widgets={telemetryWidgets}
+        />
+    );
 }

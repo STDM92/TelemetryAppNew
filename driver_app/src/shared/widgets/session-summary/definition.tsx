@@ -5,5 +5,7 @@ import type { WidgetDefinition } from "../../dashboard/widgetTypes";
 export const sessionSummaryWidgetDefinition: WidgetDefinition = {
   id: "session-summary",
   title: "Session Summary",
-  render: () => <SessionSummaryWidget />,
+  render: (context) => (
+      <SessionSummaryWidget backendStatus={context.backendStatus} snapshot={context.snapshot} />
+  ),
 };

@@ -10,6 +10,7 @@ const NAV_ITEMS: DashboardNavItem[] = [
     { id: "telemetry", label: "Telemetry", shortLabel: "TEL" },
     { id: "standings", label: "Standings", shortLabel: "STD" },
     { id: "pits", label: "Pits", shortLabel: "PIT" },
+    { id: "sessionInfo", label: "Session", shortLabel: "SEI" },
 ];
 
 export function DashboardSidebar({ activeView, onSelectView }: DashboardSidebarProps) {

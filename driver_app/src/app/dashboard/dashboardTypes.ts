@@ -1,4 +1,4 @@
-export type DashboardViewId = "telemetry" | "standings" | "pits";
+export type DashboardViewId = "telemetry" | "standings" | "pits" | "sessionInfo";
 
 export type DashboardNavItem = {
     id: DashboardViewId;

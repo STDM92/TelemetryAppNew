@@ -5,6 +5,7 @@ import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardTopBar } from "./DashboardTopBar";
 import type { DashboardViewId } from "./dashboardTypes";
 import { PitsDashboardView } from "./views/PitsDashboardView";
+import { SessionInfoDashboardView } from "./views/SessionInfoDashboardView";
 import { StandingsDashboardView } from "./views/StandingsDashboardView";
 import { TelemetryDashboardView } from "./views/TelemetryDashboardView";
 
@@ -22,6 +23,8 @@ export function DashboardShell({ backendStatus, snapshot }: DashboardShellProps)
                 return <StandingsDashboardView />;
             case "pits":
                 return <PitsDashboardView />;
+            case "sessionInfo":
+                return <SessionInfoDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
             case "telemetry":
             default:
                 return <TelemetryDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
