@@ -8,31 +8,34 @@ import type { LineChartWidgetConfig } from "../../../shared/widgets/line-chart/d
 type TelemetryDashboardViewProps = {
   backendStatus: BackendStatus | null;
   snapshot: TelemetrySnapshot | null;
+  snapshotTick: number;
 };
 
+const radToDeg = (rad: number) => rad * (180 / Math.PI);
 const telemetryWidgets: WidgetInstance<LineChartWidgetConfig>[] = [
   {
-    id: "telemetry-throttle-chart",
+    id: "telemetry-inputs-chart",
     type: "line-chart",
     config: {
-      title: "Throttle",
-      sourcePath: "inputs.throttle_ratio",
-      color: "#22c55e",
+      title: "Throttle / Brake",
       min: 0,
       max: 1,
-      maxSamples: 50,
-    },
-  },
-  {
-    id: "telemetry-brake-chart",
-    type: "line-chart",
-    config: {
-      title: "Brake",
-      sourcePath: "inputs.brake_ratio",
-      color: "#ef4444",
-      min: 0,
-      max: 1,
-      maxSamples: 50,
+      maxSamples: 210,
+      displayMultiplier: 100,
+      displaySuffix: "%",
+      displayDecimals: 0,
+      series: [
+        {
+          label: "Throttle",
+          sourcePath: "inputs.throttle_ratio",
+          color: "#22c55e",
+        },
+        {
+          label: "Brake",
+          sourcePath: "inputs.brake_ratio",
+          color: "#ef4444",
+        },
+      ],
     },
   },
   {
@@ -41,9 +44,13 @@ const telemetryWidgets: WidgetInstance<LineChartWidgetConfig>[] = [
     config: {
       title: "Steering",
       sourcePath: "inputs.steering_angle_rad",
+      min: 7.85398,
+      max: 7.85398,
       color: "#f59e0b",
       zeroCentered: true,
-      maxSamples: 50,
+      maxSamples: 210,
+      displayMultiplier: (180 / Math.PI),
+      displaySuffix: "°",
     },
   },
   {
@@ -54,11 +61,21 @@ const telemetryWidgets: WidgetInstance<LineChartWidgetConfig>[] = [
       sourcePath: "powertrain.vehicle_speed_kph",
       color: "#3b82f6",
       min: 0,
-      maxSamples: 50,
+      maxSamples: 210,
     },
   },
 ];
-
-export function TelemetryDashboardView({ backendStatus, snapshot }: TelemetryDashboardViewProps) {
-  return <WidgetGrid backendStatus={backendStatus} snapshot={snapshot} widgets={telemetryWidgets} />;
+export function TelemetryDashboardView({
+                                         backendStatus,
+                                         snapshot,
+                                         snapshotTick,
+                                       }: TelemetryDashboardViewProps) {
+  return (
+      <WidgetGrid
+          backendStatus={backendStatus}
+          snapshot={snapshot}
+          snapshotTick={snapshotTick}
+          widgets={telemetryWidgets}
+      />
+  );
 }

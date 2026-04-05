@@ -5,6 +5,7 @@ import type { TelemetrySnapshot } from "../telemetry/telemetryTypes";
 export type DashboardWidgetContext = {
   backendStatus: BackendStatus | null;
   snapshot: TelemetrySnapshot | null;
+  snapshotTick: number;
 };
 
 export type WidgetId =

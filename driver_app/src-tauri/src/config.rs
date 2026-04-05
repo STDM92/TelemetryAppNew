@@ -5,10 +5,14 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct BootstrapConfig {
+    #[serde(rename = "backendBaseUrl")]
     pub backend_base_url: String,
+
+    #[serde(rename = "backendWebSocketUrl")]
     pub backend_websocket_url: String,
+
+    #[serde(rename = "mode")]
     pub mode: String,
 }
 

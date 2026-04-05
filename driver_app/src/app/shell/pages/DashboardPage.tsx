@@ -5,9 +5,16 @@ import { DashboardShell } from "../../dashboard/DashboardShell";
 
 type DashboardPageProps = {
     snapshot: TelemetrySnapshot | null;
+    snapshotTick: number;
     backendStatus: BackendStatus | null;
 };
 
-export function DashboardPage({ snapshot, backendStatus }: DashboardPageProps) {
-    return <DashboardShell backendStatus={backendStatus} snapshot={snapshot} />;
+export function DashboardPage({ snapshot, snapshotTick, backendStatus }: DashboardPageProps) {
+    return (
+        <DashboardShell
+            backendStatus={backendStatus}
+            snapshot={snapshot}
+            snapshotTick={snapshotTick}
+        />
+    );
 }

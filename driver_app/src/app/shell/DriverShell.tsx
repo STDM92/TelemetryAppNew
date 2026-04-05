@@ -107,6 +107,7 @@ export function DriverShell() {
     const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
     const [snapshot, setSnapshot] = useState<TelemetrySnapshot | null>(null);
     const [errorText, setErrorText] = useState<string | null>(null);
+    const [snapshotTick, setSnapshotTick] = useState(0);
 
     const connectedTimerRef = useRef<number | null>(null);
     const hasTransitionedToDashboardRef = useRef(false);
@@ -117,6 +118,8 @@ export function DriverShell() {
         async function load() {
             try {
                 const config = await getBootstrapConfig();
+                console.log("Bootstrap config", config);
+
                 const process = await getSidecarProcessState();
 
                 if (isDisposed) {
@@ -162,6 +165,7 @@ export function DriverShell() {
 
             if (connectedTimerRef.current !== null) {
                 window.clearTimeout(connectedTimerRef.current);
+                connectedTimerRef.current = null;
             }
         };
     }, []);
@@ -189,19 +193,22 @@ export function DriverShell() {
                 return;
             }
 
+            console.log("Connecting telemetry WS", config.backendWebSocketUrl);
+
             disconnect = connectTelemetryStream(config.backendWebSocketUrl, {
                 onSnapshot: (nextSnapshot) => {
-                    if (!isDisposed) {
-                        setSnapshot(nextSnapshot as TelemetrySnapshot | null);
+                    if (isDisposed) {
+                        return;
                     }
+
+                    setSnapshot(nextSnapshot as TelemetrySnapshot | null);
+                    setSnapshotTick((previous) => previous + 1);
                 },
                 onClose: () => {
-                    if (!isDisposed) {
-                        setSnapshot(null);
-                    }
+                    // Keep last snapshot during reconnect.
                 },
                 onError: () => {
-                    // Keep last snapshot visible while reconnect attempts happen.
+                    // Keep last snapshot during reconnect.
                 },
             });
         });
@@ -210,7 +217,12 @@ export function DriverShell() {
             isDisposed = true;
             disconnect?.();
         };
-    }, [processState?.status, backendStatus?.status, backendStatus?.source_attachment_state]);
+    }, [
+        processState?.status,
+        backendStatus?.status,
+        backendStatus?.source_attachment_state,
+        backendStatus?.stream_state,
+    ]);
 
     const startupViewModel = useMemo(
         () =>
@@ -257,9 +269,11 @@ export function DriverShell() {
     }, [startupViewModel.stage, surface]);
 
     if (surface === "dashboard") {
+        console.log("DriverShell render snapshot", snapshot);
+
         return (
             <div className="app-screen">
-                <DashboardPage snapshot={snapshot} backendStatus={backendStatus} />
+                <DashboardPage snapshot={snapshot} snapshotTick={snapshotTick} backendStatus={backendStatus} />
             </div>
         );
     }

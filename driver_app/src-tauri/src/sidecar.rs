@@ -1,5 +1,5 @@
-use crate::driver_logging::{log_error, log_info, log_warn};
 use crate::config::AppConfig;
+use crate::driver_logging::{log_error, log_info, log_warn};
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader};
@@ -8,10 +8,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-//activate the venv via "source .venv/bin/activate"
+// activate the venv via "source .venv/bin/activate"
 
 const OUTPUT_TAIL_CAPACITY: usize = 200;
-
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -33,8 +32,6 @@ pub struct SidecarProcessState {
     pub stderr_tail: Vec<String>,
 }
 
-
-
 pub struct SidecarManager {
     config: AppConfig,
     child: Option<Child>,
@@ -48,8 +45,17 @@ pub struct SidecarManager {
 
 impl SidecarManager {
     pub fn new() -> Self {
+        Self::new_with_config(AppConfig::default())
+    }
+
+    pub fn new_with_config(config: AppConfig) -> Self {
+        log_info(&format!(
+            "Creating SidecarManager. sidecar_executable_path={} backend_port={}",
+            config.sidecar_executable_path, config.backend_port
+        ));
+
         Self {
-            config: AppConfig::default(),
+            config,
             child: None,
             last_exit_code: None,
             last_exit_reason: None,
@@ -105,9 +111,11 @@ impl SidecarManager {
         let repo_root = resolve_repo_root()?;
         let executable_path =
             resolve_sidecar_executable_path(&repo_root, &self.config.sidecar_executable_path)?;
+
         log_info(&format!(
             "Starting sidecar executable. path={} port={}",
-            executable_path.display(), self.config.backend_port
+            executable_path.display(),
+            self.config.backend_port
         ));
 
         let mut command = Command::new(&executable_path);
@@ -121,14 +129,12 @@ impl SidecarManager {
         clear_tail(&self.stdout_tail);
         clear_tail(&self.stderr_tail);
 
-        let mut child = command
-            .spawn()
-            .map_err(|e| {
-                let message = format!("Failed to start sidecar: {e}");
-                self.last_error = Some(message.clone());
-                log_error(&message);
-                message
-            })?;
+        let mut child = command.spawn().map_err(|e| {
+            let message = format!("Failed to start sidecar: {e}");
+            self.last_error = Some(message.clone());
+            log_error(&message);
+            message
+        })?;
 
         if let Some(stdout) = child.stdout.take() {
             spawn_output_reader(stdout, Arc::clone(&self.stdout_tail));
@@ -138,7 +144,10 @@ impl SidecarManager {
             spawn_output_reader(stderr, Arc::clone(&self.stderr_tail));
         }
 
-        log_info(&format!("Sidecar process spawned successfully. pid={}", child.id()));
+        log_info(&format!(
+            "Sidecar process spawned successfully. pid={}",
+            child.id()
+        ));
 
         self.last_exit_code = None;
         self.last_exit_reason = None;
@@ -168,10 +177,12 @@ impl SidecarManager {
 
         self.last_exit_code = status.code();
         self.last_exit_reason = Some("stopped_by_driver_app".to_string());
+
         log_info(&format!(
             "Sidecar process stopped. exit_code={:?} reason=stopped_by_driver_app",
             self.last_exit_code
         ));
+
         Ok(())
     }
 
@@ -181,6 +192,10 @@ impl SidecarManager {
     }
 
     pub fn update_config(&mut self, config: AppConfig) {
+        log_info(&format!(
+            "Updating sidecar manager config. sidecar_executable_path={} backend_port={}",
+            config.sidecar_executable_path, config.backend_port
+        ));
         self.config = config;
     }
 
@@ -197,14 +212,19 @@ impl SidecarManager {
                 } else {
                     "sidecar_exited_unexpectedly".to_string()
                 });
+
                 if self.stop_requested {
-                    log_info(&format!("Observed sidecar exit after stop request. exit_code={:?}", self.last_exit_code));
+                    log_info(&format!(
+                        "Observed sidecar exit after stop request. exit_code={:?}",
+                        self.last_exit_code
+                    ));
                 } else {
                     log_warn(&format!(
                         "Observed unexpected sidecar exit. exit_code={:?}",
                         self.last_exit_code
                     ));
                 }
+
                 self.stop_requested = false;
                 self.child = None;
             }
@@ -231,7 +251,10 @@ fn resolve_repo_root() -> Result<PathBuf, String> {
         .ok_or_else(|| "Failed to resolve repository root from src-tauri.".to_string())
 }
 
-fn resolve_sidecar_executable_path(repo_root: &PathBuf, configured_path: &str) -> Result<PathBuf, String> {
+fn resolve_sidecar_executable_path(
+    repo_root: &PathBuf,
+    configured_path: &str,
+) -> Result<PathBuf, String> {
     let candidate = PathBuf::from(configured_path);
 
     let resolved = if candidate.is_absolute() {
@@ -241,13 +264,14 @@ fn resolve_sidecar_executable_path(repo_root: &PathBuf, configured_path: &str) -
     };
 
     if !resolved.is_file() {
-        return Err(format!("Configured sidecar executable does not exist: {}", resolved.display()));
+        return Err(format!(
+            "Configured sidecar executable does not exist: {}",
+            resolved.display()
+        ));
     }
 
     Ok(resolved)
 }
-
-
 
 pub fn sync_manager_config(
     manager: &mut SidecarManager,
@@ -290,8 +314,8 @@ fn should_capture_tail_line(line: &str) -> bool {
 
     if trimmed.contains("uvicorn.access")
         && (trimmed.contains("GET /status")
-            || trimmed.contains("GET /api/state")
-            || trimmed.contains("GET /health"))
+        || trimmed.contains("GET /api/state")
+        || trimmed.contains("GET /health"))
     {
         return false;
     }

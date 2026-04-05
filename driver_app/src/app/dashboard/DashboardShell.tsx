@@ -12,9 +12,10 @@ import { TelemetryDashboardView } from "./views/TelemetryDashboardView";
 type DashboardShellProps = {
     backendStatus: BackendStatus | null;
     snapshot: TelemetrySnapshot | null;
+    snapshotTick: number;
 };
 
-export function DashboardShell({ backendStatus, snapshot }: DashboardShellProps) {
+export function DashboardShell({ backendStatus, snapshot, snapshotTick }: DashboardShellProps) {
     const [activeView, setActiveView] = useState<DashboardViewId>("telemetry");
 
     const content = useMemo(() => {
@@ -27,9 +28,15 @@ export function DashboardShell({ backendStatus, snapshot }: DashboardShellProps)
                 return <SessionInfoDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
             case "telemetry":
             default:
-                return <TelemetryDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
+                return (
+                    <TelemetryDashboardView
+                        backendStatus={backendStatus}
+                        snapshot={snapshot}
+                        snapshotTick={snapshotTick}
+                    />
+                );
         }
-    }, [activeView, backendStatus, snapshot]);
+    }, [activeView, backendStatus, snapshot, snapshotTick]);
 
     return (
         <div className="dashboard-shell">
