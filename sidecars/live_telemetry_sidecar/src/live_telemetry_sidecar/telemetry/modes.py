@@ -24,3 +24,6 @@ class SourceKind(str, Enum):
 class StartupRequest:
     port: int
     requested_sim: SimKind | None = None
+    uplink_enabled: bool = False
+    uplink_server_base_url: str | None = None
+    uplink_session_key: str | None = None

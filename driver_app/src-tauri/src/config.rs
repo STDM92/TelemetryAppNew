@@ -21,6 +21,9 @@ pub struct BootstrapConfig {
 pub struct AppConfig {
     pub sidecar_executable_path: String,
     pub backend_port: u16,
+    pub uplink_enabled: bool,
+    pub uplink_server_base_url: String,
+    pub uplink_session_key: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -28,6 +31,9 @@ pub struct AppConfig {
 pub struct AppConfigUpdate {
     pub sidecar_executable_path: String,
     pub backend_port: u16,
+    pub uplink_enabled: bool,
+    pub uplink_server_base_url: String,
+    pub uplink_session_key: String,
 }
 
 const CONFIG_FILE_NAME: &str = "driver_app_config.json";
@@ -68,14 +74,17 @@ pub fn save_config(app: &AppHandle, config: &AppConfig) -> Result<(), String> {
 
     fs::write(&path, raw).map_err(|e| format!("Failed to write config file: {e}"))?;
     log_info(&format!(
-        "Saved app config. sidecar_executable_path={} backend_port={}",
-        config.sidecar_executable_path, config.backend_port
+        "Saved app config. sidecar_executable_path={} backend_port={} uplink_enabled={} uplink_server_base_url={} uplink_session_key={}",
+        config.sidecar_executable_path,
+        config.backend_port,
+        config.uplink_enabled,
+        config.uplink_server_base_url,
+        config.uplink_session_key,
     ));
     Ok(())
 }
 
 fn log_warn_fallback(message: &str) {
-    // Used in early config-load paths where the main logger may not be fully meaningful yet.
     log_info(message);
 }
 
@@ -96,6 +105,9 @@ impl Default for AppConfig {
             "sidecars/live_telemetry_sidecar/dist/live-telemetry-sidecar/live-telemetry-sidecar.exe"
                 .to_string(),
             backend_port: 8000,
+            uplink_enabled: false,
+            uplink_server_base_url: "http://18.198.45.251:8080".to_string(),
+            uplink_session_key: String::new(),
         }
     }
 }

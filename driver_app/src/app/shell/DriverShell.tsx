@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getBootstrapConfig } from "../bootstrap/getBootstrapConfig";
-import { getSidecarProcessState, type SidecarProcessState } from "../local-api/processClient";
+import { getSidecarProcessState, restartSidecar, type SidecarProcessState } from "../local-api/processClient";
 import { fetchBackendStatus, type BackendStatus } from "../local-api/statusClient";
+import { fetchUplinkStatus, type UplinkStatus } from "../local-api/uplinkClient";
+import { getAppConfig, updateAppConfig } from "../local-api/configClient";
 import type { TelemetrySnapshot } from "../../shared/telemetry/telemetryTypes";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ShellHomePage } from "./pages/ShellHomePage";
@@ -15,282 +17,340 @@ const POLL_INTERVAL_MS = 1500;
 const CONNECTED_SUCCESS_HOLD_MS = 4000;
 
 function buildStartupViewModel(args: {
-    processState: SidecarProcessState | null;
-    backendStatus: BackendStatus | null;
-    errorText: string | null;
+  processState: SidecarProcessState | null;
+  backendStatus: BackendStatus | null;
+  errorText: string | null;
 }): StartupViewModel {
-    const { processState, backendStatus, errorText } = args;
+  const { processState, backendStatus, errorText } = args;
 
-    if (errorText) {
-        return {
-            stage: "failed",
-            title: "Startup problem detected",
-            subtitle: errorText,
-            detectedSim: null,
-        };
-    }
+  if (errorText) {
+    return {
+      stage: "failed",
+      title: "Startup problem detected",
+      subtitle: errorText,
+      detectedSim: null,
+    };
+  }
 
-    if (processState?.status === "exited") {
-        return {
-            stage: "failed",
-            title: "Telemetry service exited",
-            subtitle:
-                processState.lastError ??
-                processState.lastExitReason ??
-                "The sidecar exited before the app could attach.",
-            detectedSim: null,
-        };
-    }
+  if (processState?.status === "exited") {
+    return {
+      stage: "failed",
+      title: "Telemetry service exited",
+      subtitle:
+        processState.lastError ??
+        processState.lastExitReason ??
+        "The sidecar exited before the app could attach.",
+      detectedSim: null,
+    };
+  }
 
-    if (processState?.status === "not_running" && processState.lastError) {
-        return {
-            stage: "failed",
-            title: "Failed to start telemetry service",
-            subtitle: processState.lastError,
-            detectedSim: null,
-        };
-    }
+  if (processState?.status === "not_running" && processState.lastError) {
+    return {
+      stage: "failed",
+      title: "Failed to start telemetry service",
+      subtitle: processState.lastError,
+      detectedSim: null,
+    };
+  }
 
-    if (backendStatus?.status === "failed") {
-        return {
-            stage: "failed",
-            title: "Backend runtime failed",
-            subtitle: backendStatus.last_error ?? "The telemetry backend reported a failure state.",
-            detectedSim: null,
-        };
-    }
+  if (backendStatus?.status === "failed") {
+    return {
+      stage: "failed",
+      title: "Backend runtime failed",
+      subtitle: backendStatus.last_error ?? "The telemetry backend reported a failure state.",
+      detectedSim: null,
+    };
+  }
 
-    if (
-        backendStatus?.status === "running" &&
-        backendStatus.source_attachment_state === "attached"
-    ) {
-        const displayName =
-            backendStatus.source_display_name?.trim() ||
-            backendStatus.sim?.trim() ||
-            "simulator";
-
-        return {
-            stage: "connected",
-            title: `Successfully connected to ${displayName}`,
-            subtitle:
-                backendStatus.stream_state === "streaming"
-                    ? "Telemetry stream detected. Preparing dashboard..."
-                    : "Simulator detected. Preparing dashboard...",
-            detectedSim: displayName,
-        };
-    }
-
-    if (
-        processState?.status === "running" &&
-        backendStatus?.status === "running" &&
-        backendStatus.source_attachment_state === "waiting"
-    ) {
-        return {
-            stage: "waiting_for_sim",
-            title: "Looking for running simulator",
-            subtitle: "Telemetry service is running. Waiting for a supported sim to attach.",
-            detectedSim: null,
-        };
-    }
+  if (
+    backendStatus?.status === "running" &&
+    backendStatus.source_attachment_state === "attached"
+  ) {
+    const displayName =
+      backendStatus.source_display_name?.trim() ||
+      backendStatus.sim?.trim() ||
+      "simulator";
 
     return {
-        stage: "booting",
-        title: "Starting telemetry service",
-        subtitle: "Initializing local runtime and checking backend availability.",
-        detectedSim: null,
+      stage: "connected",
+      title: `Successfully connected to ${displayName}`,
+      subtitle:
+        backendStatus.stream_state === "streaming"
+          ? "Telemetry stream detected. Preparing dashboard..."
+          : "Simulator detected. Preparing dashboard...",
+      detectedSim: displayName,
     };
+  }
+
+  if (
+    processState?.status === "running" &&
+    backendStatus?.status === "running" &&
+    backendStatus.source_attachment_state === "waiting"
+  ) {
+    return {
+      stage: "waiting_for_sim",
+      title: "Looking for running simulator",
+      subtitle: "Telemetry service is running. Waiting for a supported sim to attach.",
+      detectedSim: null,
+    };
+  }
+
+  return {
+    stage: "booting",
+    title: "Starting telemetry service",
+    subtitle: "Initializing local runtime and checking backend availability.",
+    detectedSim: null,
+  };
 }
 
 export function DriverShell() {
-    const [surface, setSurface] = useState<ShellSurface>("startup");
-    const [processState, setProcessState] = useState<SidecarProcessState | null>(null);
-    const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
-    const [snapshot, setSnapshot] = useState<TelemetrySnapshot | null>(null);
-    const [errorText, setErrorText] = useState<string | null>(null);
-    const [snapshotTick, setSnapshotTick] = useState(0);
+  const [surface, setSurface] = useState<ShellSurface>("startup");
+  const [processState, setProcessState] = useState<SidecarProcessState | null>(null);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
+  const [uplinkStatus, setUplinkStatus] = useState<UplinkStatus | null>(null);
+  const [snapshot, setSnapshot] = useState<TelemetrySnapshot | null>(null);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [snapshotTick, setSnapshotTick] = useState(0);
+  const [isTogglingUplink, setIsTogglingUplink] = useState(false);
 
-    const connectedTimerRef = useRef<number | null>(null);
-    const hasTransitionedToDashboardRef = useRef(false);
+  const connectedTimerRef = useRef<number | null>(null);
+  const hasTransitionedToDashboardRef = useRef(false);
 
-    useEffect(() => {
-        let isDisposed = false;
+  useEffect(() => {
+    let isDisposed = false;
 
-        async function load() {
-            try {
-                const config = await getBootstrapConfig();
-                console.log("Bootstrap config", config);
+    async function load() {
+      try {
+        const config = await getBootstrapConfig();
+        console.log("Bootstrap config", config);
 
-                const process = await getSidecarProcessState();
+        const process = await getSidecarProcessState();
 
-                if (isDisposed) {
-                    return;
-                }
-
-                setProcessState(process);
-
-                if (process.status !== "running") {
-                    setBackendStatus(null);
-                    setSnapshot(null);
-                    setErrorText(null);
-                    hasTransitionedToDashboardRef.current = false;
-                    return;
-                }
-
-                const status = await fetchBackendStatus(config.backendBaseUrl);
-
-                if (isDisposed) {
-                    return;
-                }
-
-                setBackendStatus(status);
-                setErrorText(null);
-            } catch (error) {
-                if (isDisposed) {
-                    return;
-                }
-
-                setBackendStatus(null);
-                setSnapshot(null);
-                setErrorText(error instanceof Error ? error.message : String(error));
-                hasTransitionedToDashboardRef.current = false;
-            }
+        if (isDisposed) {
+          return;
         }
 
-        void load();
-        const handle = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+        setProcessState(process);
 
-        return () => {
-            isDisposed = true;
-            window.clearInterval(handle);
+        if (process.status !== "running") {
+          setBackendStatus(null);
+          setUplinkStatus(null);
+          setSnapshot(null);
+          setErrorText(null);
+          hasTransitionedToDashboardRef.current = false;
+          return;
+        }
 
-            if (connectedTimerRef.current !== null) {
-                window.clearTimeout(connectedTimerRef.current);
-                connectedTimerRef.current = null;
-            }
-        };
-    }, []);
+        const status = await fetchBackendStatus(config.backendBaseUrl);
 
-    useEffect(() => {
-        let isDisposed = false;
-        let disconnect: (() => void) | null = null;
+        if (isDisposed) {
+          return;
+        }
 
-        if (processState?.status !== "running") {
-            setSnapshot(null);
+        setBackendStatus(status);
+
+        const uplink = await fetchUplinkStatus(config.backendBaseUrl);
+
+        if (isDisposed) {
+          return;
+        }
+
+        setUplinkStatus(uplink);
+        setErrorText(null);
+      } catch (error) {
+        if (isDisposed) {
+          return;
+        }
+
+        setBackendStatus(null);
+        setUplinkStatus(null);
+        setSnapshot(null);
+        setErrorText(error instanceof Error ? error.message : String(error));
+        hasTransitionedToDashboardRef.current = false;
+      }
+    }
+
+    void load();
+    const handle = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+
+    return () => {
+      isDisposed = true;
+      window.clearInterval(handle);
+
+      if (connectedTimerRef.current !== null) {
+        window.clearTimeout(connectedTimerRef.current);
+        connectedTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let isDisposed = false;
+    let disconnect: (() => void) | null = null;
+
+    if (processState?.status !== "running") {
+      setSnapshot(null);
+      return;
+    }
+
+    if (
+      backendStatus?.status !== "running" ||
+      backendStatus.source_attachment_state !== "attached" ||
+      backendStatus.stream_state !== "streaming"
+    ) {
+      setSnapshot(null);
+      return;
+    }
+
+    void getBootstrapConfig().then((config) => {
+      if (isDisposed) {
+        return;
+      }
+
+      console.log("Connecting telemetry WS", config.backendWebSocketUrl);
+
+      disconnect = connectTelemetryStream(config.backendWebSocketUrl, {
+        onSnapshot: (nextSnapshot) => {
+          if (isDisposed) {
             return;
-        }
+          }
 
-        if (
-            backendStatus?.status !== "running" ||
-            backendStatus.source_attachment_state !== "attached" ||
-            backendStatus.stream_state !== "streaming"
-        ) {
-            setSnapshot(null);
-            return;
-        }
+          setSnapshot(nextSnapshot as TelemetrySnapshot | null);
+          setSnapshotTick((previous) => previous + 1);
+        },
+        onClose: () => {
+          // Keep last snapshot during reconnect.
+        },
+        onError: () => {
+          // Keep last snapshot during reconnect.
+        },
+      });
+    });
 
-        void getBootstrapConfig().then((config) => {
-            if (isDisposed) {
-                return;
-            }
+    return () => {
+      isDisposed = true;
+      disconnect?.();
+    };
+  }, [
+    processState?.status,
+    backendStatus?.status,
+    backendStatus?.source_attachment_state,
+    backendStatus?.stream_state,
+  ]);
 
-            console.log("Connecting telemetry WS", config.backendWebSocketUrl);
+  async function handleToggleUplink() {
+    if (isTogglingUplink) {
+      return;
+    }
 
-            disconnect = connectTelemetryStream(config.backendWebSocketUrl, {
-                onSnapshot: (nextSnapshot) => {
-                    if (isDisposed) {
-                        return;
-                    }
+    setIsTogglingUplink(true);
 
-                    setSnapshot(nextSnapshot as TelemetrySnapshot | null);
-                    setSnapshotTick((previous) => previous + 1);
-                },
-                onClose: () => {
-                    // Keep last snapshot during reconnect.
-                },
-                onError: () => {
-                    // Keep last snapshot during reconnect.
-                },
-            });
-        });
+    try {
+      const currentConfig = await getAppConfig();
 
-        return () => {
-            isDisposed = true;
-            disconnect?.();
-        };
-    }, [
-        processState?.status,
-        backendStatus?.status,
-        backendStatus?.source_attachment_state,
-        backendStatus?.stream_state,
-    ]);
+      const updatedConfig = {
+        ...currentConfig,
+        uplinkEnabled: !currentConfig.uplinkEnabled,
+      };
 
-    const startupViewModel = useMemo(
-        () =>
-            buildStartupViewModel({
-                processState,
-                backendStatus,
-                errorText,
-            }),
-        [processState, backendStatus, errorText],
-    );
+      await updateAppConfig(updatedConfig);
+      const process = await restartSidecar();
+      setProcessState(process);
 
-    useEffect(() => {
-        if (surface === "control") {
-            return;
-        }
+      if (process.status === "running") {
+        const bootstrap = await getBootstrapConfig();
+        const status = await fetchBackendStatus(bootstrap.backendBaseUrl);
+        const uplink = await fetchUplinkStatus(bootstrap.backendBaseUrl);
 
-        if (startupViewModel.stage !== "connected") {
-            if (connectedTimerRef.current !== null) {
-                window.clearTimeout(connectedTimerRef.current);
-                connectedTimerRef.current = null;
-            }
+        setBackendStatus(status);
+        setUplinkStatus(uplink);
+      } else {
+        setBackendStatus(null);
+        setUplinkStatus(null);
+      }
 
-            if (!hasTransitionedToDashboardRef.current) {
-                setSurface("startup");
-            }
+      setErrorText(null);
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsTogglingUplink(false);
+    }
+  }
 
-            return;
-        }
+  const startupViewModel = useMemo(
+    () =>
+      buildStartupViewModel({
+        processState,
+        backendStatus,
+        errorText,
+      }),
+    [processState, backendStatus, errorText],
+  );
 
-        if (hasTransitionedToDashboardRef.current) {
-            return;
-        }
+  useEffect(() => {
+    if (surface === "control") {
+      return;
+    }
 
-        if (connectedTimerRef.current !== null) {
-            window.clearTimeout(connectedTimerRef.current);
-        }
+    if (startupViewModel.stage !== "connected") {
+      if (connectedTimerRef.current !== null) {
+        window.clearTimeout(connectedTimerRef.current);
+        connectedTimerRef.current = null;
+      }
 
+      if (!hasTransitionedToDashboardRef.current) {
         setSurface("startup");
+      }
 
-        connectedTimerRef.current = window.setTimeout(() => {
-            hasTransitionedToDashboardRef.current = true;
-            setSurface("dashboard");
-        }, CONNECTED_SUCCESS_HOLD_MS);
-    }, [startupViewModel.stage, surface]);
-
-    if (surface === "dashboard") {
-        console.log("DriverShell render snapshot", snapshot);
-
-        return (
-            <div className="app-screen">
-                <DashboardPage snapshot={snapshot} snapshotTick={snapshotTick} backendStatus={backendStatus} />
-            </div>
-        );
+      return;
     }
 
-    if (surface === "control" && SHOW_DEV_CONTROL_PAGE) {
-        return (
-            <div className="app-shell">
-                <main className="app-shell__main">
-                    <ShellHomePage />
-                </main>
-            </div>
-        );
+    if (hasTransitionedToDashboardRef.current) {
+      return;
     }
+
+    if (connectedTimerRef.current !== null) {
+      window.clearTimeout(connectedTimerRef.current);
+    }
+
+    setSurface("startup");
+
+    connectedTimerRef.current = window.setTimeout(() => {
+      hasTransitionedToDashboardRef.current = true;
+      setSurface("dashboard");
+    }, CONNECTED_SUCCESS_HOLD_MS);
+  }, [startupViewModel.stage, surface]);
+
+  if (surface === "dashboard") {
+    console.log("DriverShell render snapshot", snapshot);
 
     return (
-        <div className="app-screen">
-            <StartupPage model={startupViewModel} />
-        </div>
+      <div className="app-screen">
+        <DashboardPage
+          snapshot={snapshot}
+          snapshotTick={snapshotTick}
+          backendStatus={backendStatus}
+          uplinkStatus={uplinkStatus}
+          isTogglingUplink={isTogglingUplink}
+          onToggleUplink={handleToggleUplink}
+        />
+      </div>
     );
+  }
+
+  if (surface === "control" && SHOW_DEV_CONTROL_PAGE) {
+    return (
+      <div className="app-shell">
+        <main className="app-shell__main">
+          <ShellHomePage />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-screen">
+      <StartupPage model={startupViewModel} />
+    </div>
+  );
 }

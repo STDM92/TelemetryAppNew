@@ -1,6 +1,9 @@
 export type AppConfig = {
   sidecarExecutablePath: string;
   backendPort: number;
+  uplinkEnabled: boolean;
+  uplinkServerBaseUrl: string;
+  uplinkSessionKey: string;
 };
 
 export type BootstrapConfig = {
