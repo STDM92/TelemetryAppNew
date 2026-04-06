@@ -10,7 +10,7 @@ import httpx
 import websockets
 
 DEFAULT_LOCAL_SIDECAR_WS = "ws://127.0.0.1:8000/ws"
-DEFAULT_SERVER_BASE_URL = "http://127.0.0.1:8080"
+DEFAULT_SERVER_BASE_URL = "http://18.198.45.251:8080/"
 
 
 async def create_session_if_needed(server_base_url: str, session_key: str | None) -> str:

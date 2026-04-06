@@ -1,5 +1,9 @@
-from fastapi import FastAPI
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.health import router as health_router
 from app.api.routes.sessions import router as sessions_router
@@ -29,3 +33,50 @@ app.include_router(state_router)
 app.include_router(sessions_router)
 app.include_router(proposals_router)
 app.include_router(ws_router)
+
+FRONTEND_DIST_DIR = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
+
+if FRONTEND_ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_ASSETS_DIR), name="frontend-assets")
+
+
+def _resolve_frontend_file(path_fragment: str) -> Path | None:
+    if not FRONTEND_DIST_DIR.exists():
+        return None
+
+    normalized = path_fragment.lstrip("/")
+    if not normalized:
+        candidate = FRONTEND_DIST_DIR / "index.html"
+        return candidate if candidate.exists() else None
+
+    candidate = (FRONTEND_DIST_DIR / normalized).resolve()
+    try:
+        candidate.relative_to(FRONTEND_DIST_DIR.resolve())
+    except ValueError:
+        return None
+
+    if candidate.is_file():
+        return candidate
+
+    index_file = FRONTEND_DIST_DIR / "index.html"
+    return index_file if index_file.exists() else None
+
+
+@app.get("/", include_in_schema=False)
+def serve_frontend_index() -> FileResponse:
+    file_path = _resolve_frontend_file("")
+    if file_path is None:
+        raise HTTPException(status_code=404, detail="Frontend build not found.")
+    return FileResponse(file_path)
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def serve_frontend_app(full_path: str) -> FileResponse:
+    if full_path == "ws" or full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found.")
+
+    file_path = _resolve_frontend_file(full_path)
+    if file_path is None:
+        raise HTTPException(status_code=404, detail="Frontend build not found.")
+    return FileResponse(file_path)

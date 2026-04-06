@@ -1,7 +1,7 @@
 import { getAppConfig, updateAppConfig } from "../api/configClient";
 import { getSidecarProcessState } from "../api/processClient";
 import { fetchRuntimeStatus } from "../api/runtimeClient";
-import type { BootstrapConfig, SidecarProcessState } from "../../types/api";
+import type { AppConfig, BootstrapConfig, SidecarProcessState } from "../../types/api";
 import { getBootstrapConfig } from "../api/bootstrap";
 import { connectTelemetryStream } from "../api/telemetryStreamClient";
 
@@ -15,15 +15,15 @@ function formatExcerpt(state: Record<string, unknown> | null): string {
   const powertrain = (state.powertrain as Record<string, unknown> | undefined) ?? {};
 
   return JSON.stringify(
-      {
-        source: state.source ?? null,
-        session_phase: session.session_phase ?? null,
-        current_lap: lap.current_lap ?? null,
-        speed_kph: powertrain.vehicle_speed_kph ?? null,
-        gear: powertrain.gear ?? null,
-      },
-      null,
-      2
+    {
+      source: state.source ?? null,
+      session_phase: session.session_phase ?? null,
+      current_lap: lap.current_lap ?? null,
+      speed_kph: powertrain.vehicle_speed_kph ?? null,
+      gear: powertrain.gear ?? null,
+    },
+    null,
+    2
   );
 }
 
@@ -58,6 +58,7 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
   const POLL_INTERVAL_MS = 1000;
 
   let currentBootstrap = config;
+  let currentAppConfig: AppConfig | null = null;
   let isConfigActionInFlight = false;
   let latestProcessState: SidecarProcessState | null = null;
   let telemetryDisconnect: (() => void) | null = null;
@@ -134,7 +135,7 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
   const stateExcerpt = document.getElementById("stateExcerpt") as HTMLElement;
 
   const sidecarExecutablePathInput = document.getElementById(
-      "sidecarExecutablePathInput"
+    "sidecarExecutablePathInput"
   ) as HTMLInputElement;
   const backendPortInput = document.getElementById("backendPortInput") as HTMLInputElement;
   const saveConfigButton = document.getElementById("saveConfigButton") as HTMLButtonElement;
@@ -195,6 +196,7 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
   async function loadAppConfig(): Promise<void> {
     try {
       const appConfig = await getAppConfig();
+      currentAppConfig = appConfig;
       sidecarExecutablePathInput.value = appConfig.sidecarExecutablePath;
       backendPortInput.value = String(appConfig.backendPort);
     } catch (error) {
@@ -268,15 +270,21 @@ export function mountShell(root: HTMLElement, config: BootstrapConfig): void {
           throw new Error("Sidecar executable path is required.");
         }
 
+        if (!currentAppConfig) {
+          throw new Error("App config has not been loaded yet.");
+        }
+
         const updated = await updateAppConfig({
+          ...currentAppConfig,
           sidecarExecutablePath,
           backendPort,
         });
 
+        currentAppConfig = updated;
         sidecarExecutablePathInput.value = updated.sidecarExecutablePath;
         backendPortInput.value = String(updated.backendPort);
         configStatusText.textContent =
-            "Config applied. Changes will be used on next app launch.";
+          "Config applied. Changes will be used on next app launch.";
 
         const refreshedBootstrap = await getBootstrapConfig();
         applyBootstrapConfig(refreshedBootstrap);

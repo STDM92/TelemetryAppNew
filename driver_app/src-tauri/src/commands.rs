@@ -70,6 +70,9 @@ pub fn update_app_config(
         let mut config = config.lock().map_err(|e| e.to_string())?;
         config.sidecar_executable_path = update.sidecar_executable_path;
         config.backend_port = update.backend_port;
+        config.uplink_enabled = update.uplink_enabled;
+        config.uplink_server_base_url = update.uplink_server_base_url;
+        config.uplink_session_key = update.uplink_session_key;
         config.clone()
     };
 
@@ -84,8 +87,12 @@ pub fn update_app_config(
     }
 
     log_info(&format!(
-        "Updated app config via command. sidecar_executable_path={} backend_port={}",
-        updated.sidecar_executable_path, updated.backend_port
+        "Updated app config via command. sidecar_executable_path={} backend_port={} uplink_enabled={} uplink_server_base_url={} uplink_session_key={}",
+        updated.sidecar_executable_path,
+        updated.backend_port,
+        updated.uplink_enabled,
+        updated.uplink_server_base_url,
+        updated.uplink_session_key,
     ));
 
     Ok(updated)

@@ -34,8 +34,12 @@ fn main() {
 
     let loaded = load_config(&app_handle);
     crate::driver_logging::log_info(&format!(
-        "Loaded app config. sidecar_executable_path={} backend_port={}",
-        loaded.sidecar_executable_path, loaded.backend_port
+        "Loaded app config. sidecar_executable_path={} backend_port={} uplink_enabled={} uplink_server_base_url={} uplink_session_key={}",
+        loaded.sidecar_executable_path,
+        loaded.backend_port,
+        loaded.uplink_enabled,
+        loaded.uplink_server_base_url,
+        loaded.uplink_session_key,
     ));
 
     {

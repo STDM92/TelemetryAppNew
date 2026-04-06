@@ -1,10 +1,14 @@
 import React from "react";
 import type { BackendStatus } from "../local-api/statusClient";
 import type { TelemetrySnapshot } from "../../shared/telemetry/telemetryTypes";
+import type { UplinkStatus } from "../local-api/uplinkClient";
 
 type DashboardTopBarProps = {
   backendStatus: BackendStatus | null;
   snapshot: TelemetrySnapshot | null;
+  uplinkStatus: UplinkStatus | null;
+  isTogglingUplink: boolean;
+  onToggleUplink: () => void;
 };
 
 function formatConnectionText(backendStatus: BackendStatus | null): string {
@@ -75,7 +79,21 @@ function formatPitRoadText(snapshot: TelemetrySnapshot | null): string {
   return isOnPitRoad ? "On pit road" : "Track";
 }
 
-export function DashboardTopBar({ backendStatus, snapshot }: DashboardTopBarProps) {
+function getToggleLabel(uplinkStatus: UplinkStatus | null, isTogglingUplink: boolean): string {
+  if (isTogglingUplink) {
+    return "Switching...";
+  }
+
+  return uplinkStatus?.enabled ? "Disable Uplink" : "Enable Uplink";
+}
+
+export function DashboardTopBar({
+  backendStatus,
+  snapshot,
+  uplinkStatus,
+  isTogglingUplink,
+  onToggleUplink,
+}: DashboardTopBarProps) {
   return (
     <header className="dashboard-topbar">
       <div className="dashboard-topbar__group">
@@ -86,6 +104,20 @@ export function DashboardTopBar({ backendStatus, snapshot }: DashboardTopBarProp
         <div className="dashboard-chip">
           <span className="dashboard-chip__label">Connection</span>
           <span className="dashboard-chip__value">{formatConnectionText(backendStatus)}</span>
+        </div>
+
+        <div className="dashboard-chip" title={uplinkStatus?.engineer_url ?? undefined}>
+          <span className="dashboard-chip__label">Session Key</span>
+          <span className="dashboard-chip__value">
+            {uplinkStatus?.active_session_key ?? (uplinkStatus?.enabled ? "Connecting..." : "Disabled")}
+          </span>
+        </div>
+
+        <div className="dashboard-chip" title={uplinkStatus?.last_error ?? undefined}>
+          <span className="dashboard-chip__label">Uplink</span>
+          <span className="dashboard-chip__value">
+            {uplinkStatus?.enabled ? uplinkStatus.remote_state : "Local Only"}
+          </span>
         </div>
 
         <div className="dashboard-chip">
@@ -116,6 +148,18 @@ export function DashboardTopBar({ backendStatus, snapshot }: DashboardTopBarProp
         <div className="dashboard-chip">
           <span className="dashboard-chip__label">Stream</span>
           <span className="dashboard-chip__value">{backendStatus?.stream_state ?? "unknown"}</span>
+        </div>
+
+        <div className="dashboard-chip">
+          <span className="dashboard-chip__label">Remote</span>
+          <button
+            type="button"
+            onClick={onToggleUplink}
+            disabled={isTogglingUplink}
+            className="dashboard-topbar__uplink-button"
+          >
+            {getToggleLabel(uplinkStatus, isTogglingUplink)}
+          </button>
         </div>
       </div>
     </header>

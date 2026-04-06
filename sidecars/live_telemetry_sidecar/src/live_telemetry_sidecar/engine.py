@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from live_telemetry_sidecar.backend.runtime import DriverBackendRuntime
+from live_telemetry_sidecar.backend.uplink import SessionUplink
 from live_telemetry_sidecar.backend.websocket import WebSocketConnectionManager
 from live_telemetry_sidecar.logging_config import configure_logging
 from live_telemetry_sidecar.telemetry.adapter_contracts import SelectedTelemetrySource
@@ -22,28 +23,9 @@ class StartupArgumentError(ValueError):
 
 class StartupArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
-        """
-        Handles an error that occurs during argument parsing by raising a StartupArgumentError.
-
-        :param message: The error message describing the issue encountered during parsing.
-        :type message: str
-
-        :raises StartupArgumentError: Always raised with the provided error message.
-        """
         raise StartupArgumentError(message)
 
     def exit(self, status: int = 0, message: str | None = None) -> None:
-        """
-        Exits the argument parser, optionally printing a message to stderr and raising SystemExit.
-
-        :param status: The exit status code to be returned.
-        :type status: int
-
-        :param message: An optional message to be printed to stderr before exiting.
-        :type message: str | None
-
-        :raises SystemExit: Always raised with the specified status code.
-        """
         if message:
             self._print_message(message, sys.stderr)
         raise SystemExit(status)
@@ -52,23 +34,11 @@ class StartupArgumentParser(argparse.ArgumentParser):
 logger = logging.getLogger(__name__)
 
 runtime: DriverBackendRuntime | None = None
+uplink: SessionUplink | None = None
 manager = WebSocketConnectionManager()
 
 
 def _port_argument(value: str) -> int:
-    """
-    Converts a string input to an integer value representing a valid port number and validates
-    that it falls within the valid port range. Raises an error if the input is invalid.
-
-    :param value: The string input to be converted and validated as a port number.
-    :type value: str
-
-    :return: The integer value of the port, validated to be between 1 and 65535 inclusive.
-    :rtype: int
-
-    :raises argparse.ArgumentTypeError: If the input value cannot be converted to an integer
-        or if the resulting integer is outside the valid port number range (1-65535).
-    """
     try:
         port = int(value)
     except ValueError as exc:
@@ -80,16 +50,14 @@ def _port_argument(value: str) -> int:
     return port
 
 
+def _non_empty_string(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise argparse.ArgumentTypeError("value must not be empty.")
+    return normalized
+
+
 def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
-    """
-    Parses command-line arguments for the telemetry live backend and returns a StartupRequest.
-
-    :param argv: An optional list of command-line arguments to parse. Defaults to sys.argv.
-    :type argv: list[str] | None
-
-    :return: A StartupRequest object containing the parsed configuration.
-    :rtype: StartupRequest
-    """
     parser = StartupArgumentParser(description="Telemetry Live Backend")
     parser.add_argument(
         "--port",
@@ -97,16 +65,38 @@ def parse_startup_args(argv: list[str] | None = None) -> StartupRequest:
         default=8000,
         help="Port to run the API on",
     )
+    parser.add_argument(
+        "--uplink-enabled",
+        action="store_true",
+        help="Enable the remote telemetry uplink to the session web server.",
+    )
+    parser.add_argument(
+        "--uplink-server-base-url",
+        type=_non_empty_string,
+        default=None,
+        help="Telemetry web server base URL used for remote uplink, for example http://127.0.0.1:8080",
+    )
+    parser.add_argument(
+        "--uplink-session-key",
+        type=_non_empty_string,
+        default=None,
+        help="Existing session key to publish into. If omitted, a session is created remotely.",
+    )
 
     args = parser.parse_args(argv)
 
-    return StartupRequest(port=args.port)
+    if args.uplink_enabled and not args.uplink_server_base_url:
+        raise StartupArgumentError("--uplink-server-base-url is required when --uplink-enabled is set.")
+
+    return StartupRequest(
+        port=args.port,
+        uplink_enabled=args.uplink_enabled,
+        uplink_server_base_url=args.uplink_server_base_url,
+        uplink_session_key=args.uplink_session_key,
+    )
 
 
 def configure_framework_logging() -> None:
-    """
-    Configures logging for external frameworks (uvicorn, fastapi) to propagate to the root logger.
-    """
     logger_names = [
         "uvicorn",
         "uvicorn.error",
@@ -123,20 +113,19 @@ def configure_framework_logging() -> None:
 
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI):
-    """
-    Lifespan context manager for the FastAPI application, handling startup and shutdown.
-
-    :param fastapi_app: The FastAPI application instance.
-    :type fastapi_app: FastAPI
-    """
     if runtime is None:
         raise RuntimeError("Backend runtime has not been configured.")
+
+    if uplink is not None:
+        await uplink.start()
 
     await runtime.start()
     try:
         yield
     finally:
         await runtime.stop()
+        if uplink is not None:
+            await uplink.stop()
         logger.info("Backend Engine cleanly shut down.")
 
 
@@ -155,12 +144,6 @@ app.add_middleware(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """
-    WebSocket endpoint for telemetry data broadcasting.
-
-    :param websocket: The WebSocket connection instance.
-    :type websocket: WebSocket
-    """
     await manager.connect(websocket)
     try:
         while True:
@@ -170,12 +153,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 def _runtime_status_payload() -> dict:
-    """
-    Generates the current status payload from the backend runtime.
-
-    :return: A dictionary containing the current status of the runtime.
-    :rtype: dict
-    """
     if runtime is None:
         return {"status": "not_configured"}
 
@@ -184,52 +161,48 @@ def _runtime_status_payload() -> dict:
 
 @app.get("/health")
 def health():
-    """
-    Health check endpoint returning the current runtime status.
-
-    :return: The runtime status payload.
-    :rtype: dict
-    """
     return _runtime_status_payload()
 
 
 @app.get("/status")
 def get_current_status():
-    """
-    Status endpoint returning the current runtime status.
-
-    :return: The runtime status payload.
-    :rtype: dict
-    """
     return _runtime_status_payload()
 
 
 @app.get("/api/state")
 def get_current_state():
-    """
-    API endpoint returning the current telemetry state.
-
-    :return: The current telemetry state, or None if the runtime is not configured.
-    :rtype: dict | None
-    """
     if runtime is None:
         return None
     return runtime.get_current_state()
 
 
+@app.get("/api/uplink")
+def get_uplink_status():
+    if uplink is None:
+        return {
+            "enabled": False,
+            "server_base_url": None,
+            "configured_session_key": None,
+            "active_session_key": None,
+            "engineer_url": None,
+            "remote_state": "disabled",
+            "last_error": None,
+            "last_connected_at": None,
+            "last_sent_at": None,
+            "frames_sent": 0,
+        }
 
+    return uplink.get_status()
+
+
+async def _publish_to_local_and_remote(snapshot: dict) -> None:
+    await manager.broadcast(snapshot)
+
+    if uplink is not None:
+        await uplink.publish_snapshot(snapshot)
 
 
 def main(argv: list[str] | None = None) -> int:
-    """
-    Main entry point for the live telemetry sidecar.
-
-    :param argv: Optional command-line arguments.
-    :type argv: list[str] | None
-
-    :return: Exit code (0 for success, 1 for failure).
-    :rtype: int
-    """
     try:
         log_file = configure_logging()
         configure_framework_logging()
@@ -237,8 +210,11 @@ def main(argv: list[str] | None = None) -> int:
 
         request = parse_startup_args(argv)
         logger.info(
-            "Starting live backend (port=%s).",
+            "Starting live backend (port=%s uplink_enabled=%s uplink_server_base_url=%s uplink_session_key=%s).",
             request.port,
+            request.uplink_enabled,
+            request.uplink_server_base_url,
+            request.uplink_session_key,
         )
 
         adapters = build_available_adapters()
@@ -260,9 +236,17 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         global runtime
+        global uplink
+
+        uplink = SessionUplink(
+            enabled=request.uplink_enabled,
+            server_base_url=request.uplink_server_base_url,
+            configured_session_key=request.uplink_session_key,
+        )
+
         runtime = DriverBackendRuntime(
             telemetry_source=telemetry_source,
-            publish_callback=manager.broadcast,
+            publish_callback=_publish_to_local_and_remote,
             active_source=waiting_source,
         )
 

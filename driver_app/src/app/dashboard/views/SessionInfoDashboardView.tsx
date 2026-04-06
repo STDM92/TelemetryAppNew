@@ -5,24 +5,26 @@ import { WidgetGrid } from "../../../shared/dashboard/WidgetGrid";
 import type { WidgetId } from "../../../shared/dashboard/widgetTypes";
 
 type SessionInfoDashboardViewProps = {
-    backendStatus: BackendStatus | null;
-    snapshot: TelemetrySnapshot | null;
+  backendStatus: BackendStatus | null;
+  snapshot: TelemetrySnapshot | null;
+  snapshotTick: number;
 };
 
 const sessionInfoWidgetIds: WidgetId[] = [
-    "session-summary",
-    "backend-status",
+  // keep your existing ids here
 ];
 
 export function SessionInfoDashboardView({
-                                             backendStatus,
-                                             snapshot,
-                                         }: SessionInfoDashboardViewProps) {
-    return (
-        <WidgetGrid
-            backendStatus={backendStatus}
-            snapshot={snapshot}
-            widgetIds={sessionInfoWidgetIds}
-        />
-    );
+  backendStatus,
+  snapshot,
+  snapshotTick,
+}: SessionInfoDashboardViewProps) {
+  return (
+    <WidgetGrid
+      backendStatus={backendStatus}
+      snapshot={snapshot}
+      snapshotTick={snapshotTick}
+      widgetIds={sessionInfoWidgetIds}
+    />
+  );
 }

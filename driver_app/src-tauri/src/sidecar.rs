@@ -63,8 +63,12 @@ impl SidecarManager {
 
     pub fn new_with_config(config: AppConfig) -> Self {
         log_info(&format!(
-            "Creating SidecarManager. sidecar_executable_path={} backend_port={}",
-            config.sidecar_executable_path, config.backend_port
+            "Creating SidecarManager. sidecar_executable_path={} backend_port={} uplink_enabled={} uplink_server_base_url={} uplink_session_key={}",
+            config.sidecar_executable_path,
+            config.backend_port,
+            config.uplink_enabled,
+            config.uplink_server_base_url,
+            config.uplink_session_key,
         ));
 
         Self {
@@ -128,9 +132,9 @@ impl SidecarManager {
         clear_tail(&self.stdout_tail);
         clear_tail(&self.stderr_tail);
 
-        let mut command = build_sidecar_command(&launch_target, self.config.backend_port);
+        let mut command = build_sidecar_command(&launch_target, &self.config);
 
-        log_launch_target(&launch_target, self.config.backend_port);
+        log_launch_target(&launch_target, &self.config);
 
         let mut child = command.spawn().map_err(|e| {
             let message = format!("Failed to start sidecar: {e}");
@@ -196,8 +200,12 @@ impl SidecarManager {
 
     pub fn update_config(&mut self, config: AppConfig) {
         log_info(&format!(
-            "Updating sidecar manager config. sidecar_executable_path={} backend_port={}",
-            config.sidecar_executable_path, config.backend_port
+            "Updating sidecar manager config. sidecar_executable_path={} backend_port={} uplink_enabled={} uplink_server_base_url={} uplink_session_key={}",
+            config.sidecar_executable_path,
+            config.backend_port,
+            config.uplink_enabled,
+            config.uplink_server_base_url,
+            config.uplink_session_key,
         ));
         self.config = config;
     }
@@ -325,7 +333,7 @@ fn resolve_sidecar_executable_path(
     Ok(resolved)
 }
 
-fn build_sidecar_command(launch_target: &SidecarLaunchTarget, backend_port: u16) -> Command {
+fn build_sidecar_command(launch_target: &SidecarLaunchTarget, config: &AppConfig) -> Command {
     let mut command = match launch_target {
         SidecarLaunchTarget::Executable { executable_path, .. } => Command::new(executable_path),
         SidecarLaunchTarget::PythonModule {
@@ -347,24 +355,40 @@ fn build_sidecar_command(launch_target: &SidecarLaunchTarget, backend_port: u16)
     command
         .current_dir(working_dir)
         .arg("--port")
-        .arg(backend_port.to_string())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .arg(config.backend_port.to_string());
 
+    if config.uplink_enabled {
+        command
+            .arg("--uplink-enabled")
+            .arg("--uplink-server-base-url")
+            .arg(config.uplink_server_base_url.trim());
+
+        let session_key = config.uplink_session_key.trim();
+        if !session_key.is_empty() {
+            command
+                .arg("--uplink-session-key")
+                .arg(session_key);
+        }
+    }
+
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
     command
 }
 
-fn log_launch_target(launch_target: &SidecarLaunchTarget, backend_port: u16) {
+fn log_launch_target(launch_target: &SidecarLaunchTarget, config: &AppConfig) {
     match launch_target {
         SidecarLaunchTarget::Executable {
             executable_path,
             working_dir,
         } => {
             log_info(&format!(
-                "Starting sidecar executable. path={} cwd={} port={}",
+                "Starting sidecar executable. path={} cwd={} port={} uplink_enabled={} uplink_server_base_url={} uplink_session_key={}",
                 executable_path.display(),
                 working_dir.display(),
-                backend_port
+                config.backend_port,
+                config.uplink_enabled,
+                config.uplink_server_base_url,
+                config.uplink_session_key,
             ));
         }
         SidecarLaunchTarget::PythonModule {
@@ -373,11 +397,14 @@ fn log_launch_target(launch_target: &SidecarLaunchTarget, backend_port: u16) {
             working_dir,
         } => {
             log_info(&format!(
-                "Starting sidecar Python module. python={} module={} cwd={} port={}",
+                "Starting sidecar Python module. python={} module={} cwd={} port={} uplink_enabled={} uplink_server_base_url={} uplink_session_key={}",
                 python_command,
                 module_name,
                 working_dir.display(),
-                backend_port
+                config.backend_port,
+                config.uplink_enabled,
+                config.uplink_server_base_url,
+                config.uplink_session_key,
             ));
         }
     }
@@ -424,8 +451,9 @@ fn should_capture_tail_line(line: &str) -> bool {
 
     if trimmed.contains("uvicorn.access")
         && (trimmed.contains("GET /status")
-        || trimmed.contains("GET /api/state")
-        || trimmed.contains("GET /health"))
+            || trimmed.contains("GET /api/state")
+            || trimmed.contains("GET /api/uplink")
+            || trimmed.contains("GET /health"))
     {
         return false;
     }
