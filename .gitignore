@@ -1,2 +1,5 @@
 /.idea/
 .idea/
+/sidecars/live_telemetry_sidecar/build/live_telemetry_sidecar/
+/sidecars/live_telemetry_sidecar/dist/live-telemetry-sidecar/
+/dev_tools/mock_sim/replay_files/mercedesamgevogt3_nurburgring combinedshortb 2026-03-15 19-07-40.ibt

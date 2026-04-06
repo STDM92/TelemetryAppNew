@@ -1,0 +1,296 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getBootstrapConfig } from "../bootstrap/getBootstrapConfig";
+import { getSidecarProcessState, type SidecarProcessState } from "../local-api/processClient";
+import { fetchBackendStatus, type BackendStatus } from "../local-api/statusClient";
+import type { TelemetrySnapshot } from "../../shared/telemetry/telemetryTypes";
+import { DashboardPage } from "./pages/DashboardPage";
+import { ShellHomePage } from "./pages/ShellHomePage";
+import { StartupPage, type StartupViewModel } from "./pages/StartupPage";
+import { connectTelemetryStream } from "../api/telemetryStreamClient";
+
+type ShellSurface = "startup" | "dashboard" | "control";
+
+const SHOW_DEV_CONTROL_PAGE = false;
+const POLL_INTERVAL_MS = 1500;
+const CONNECTED_SUCCESS_HOLD_MS = 4000;
+
+function buildStartupViewModel(args: {
+    processState: SidecarProcessState | null;
+    backendStatus: BackendStatus | null;
+    errorText: string | null;
+}): StartupViewModel {
+    const { processState, backendStatus, errorText } = args;
+
+    if (errorText) {
+        return {
+            stage: "failed",
+            title: "Startup problem detected",
+            subtitle: errorText,
+            detectedSim: null,
+        };
+    }
+
+    if (processState?.status === "exited") {
+        return {
+            stage: "failed",
+            title: "Telemetry service exited",
+            subtitle:
+                processState.lastError ??
+                processState.lastExitReason ??
+                "The sidecar exited before the app could attach.",
+            detectedSim: null,
+        };
+    }
+
+    if (processState?.status === "not_running" && processState.lastError) {
+        return {
+            stage: "failed",
+            title: "Failed to start telemetry service",
+            subtitle: processState.lastError,
+            detectedSim: null,
+        };
+    }
+
+    if (backendStatus?.status === "failed") {
+        return {
+            stage: "failed",
+            title: "Backend runtime failed",
+            subtitle: backendStatus.last_error ?? "The telemetry backend reported a failure state.",
+            detectedSim: null,
+        };
+    }
+
+    if (
+        backendStatus?.status === "running" &&
+        backendStatus.source_attachment_state === "attached"
+    ) {
+        const displayName =
+            backendStatus.source_display_name?.trim() ||
+            backendStatus.sim?.trim() ||
+            "simulator";
+
+        return {
+            stage: "connected",
+            title: `Successfully connected to ${displayName}`,
+            subtitle:
+                backendStatus.stream_state === "streaming"
+                    ? "Telemetry stream detected. Preparing dashboard..."
+                    : "Simulator detected. Preparing dashboard...",
+            detectedSim: displayName,
+        };
+    }
+
+    if (
+        processState?.status === "running" &&
+        backendStatus?.status === "running" &&
+        backendStatus.source_attachment_state === "waiting"
+    ) {
+        return {
+            stage: "waiting_for_sim",
+            title: "Looking for running simulator",
+            subtitle: "Telemetry service is running. Waiting for a supported sim to attach.",
+            detectedSim: null,
+        };
+    }
+
+    return {
+        stage: "booting",
+        title: "Starting telemetry service",
+        subtitle: "Initializing local runtime and checking backend availability.",
+        detectedSim: null,
+    };
+}
+
+export function DriverShell() {
+    const [surface, setSurface] = useState<ShellSurface>("startup");
+    const [processState, setProcessState] = useState<SidecarProcessState | null>(null);
+    const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
+    const [snapshot, setSnapshot] = useState<TelemetrySnapshot | null>(null);
+    const [errorText, setErrorText] = useState<string | null>(null);
+    const [snapshotTick, setSnapshotTick] = useState(0);
+
+    const connectedTimerRef = useRef<number | null>(null);
+    const hasTransitionedToDashboardRef = useRef(false);
+
+    useEffect(() => {
+        let isDisposed = false;
+
+        async function load() {
+            try {
+                const config = await getBootstrapConfig();
+                console.log("Bootstrap config", config);
+
+                const process = await getSidecarProcessState();
+
+                if (isDisposed) {
+                    return;
+                }
+
+                setProcessState(process);
+
+                if (process.status !== "running") {
+                    setBackendStatus(null);
+                    setSnapshot(null);
+                    setErrorText(null);
+                    hasTransitionedToDashboardRef.current = false;
+                    return;
+                }
+
+                const status = await fetchBackendStatus(config.backendBaseUrl);
+
+                if (isDisposed) {
+                    return;
+                }
+
+                setBackendStatus(status);
+                setErrorText(null);
+            } catch (error) {
+                if (isDisposed) {
+                    return;
+                }
+
+                setBackendStatus(null);
+                setSnapshot(null);
+                setErrorText(error instanceof Error ? error.message : String(error));
+                hasTransitionedToDashboardRef.current = false;
+            }
+        }
+
+        void load();
+        const handle = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+
+        return () => {
+            isDisposed = true;
+            window.clearInterval(handle);
+
+            if (connectedTimerRef.current !== null) {
+                window.clearTimeout(connectedTimerRef.current);
+                connectedTimerRef.current = null;
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        let isDisposed = false;
+        let disconnect: (() => void) | null = null;
+
+        if (processState?.status !== "running") {
+            setSnapshot(null);
+            return;
+        }
+
+        if (
+            backendStatus?.status !== "running" ||
+            backendStatus.source_attachment_state !== "attached" ||
+            backendStatus.stream_state !== "streaming"
+        ) {
+            setSnapshot(null);
+            return;
+        }
+
+        void getBootstrapConfig().then((config) => {
+            if (isDisposed) {
+                return;
+            }
+
+            console.log("Connecting telemetry WS", config.backendWebSocketUrl);
+
+            disconnect = connectTelemetryStream(config.backendWebSocketUrl, {
+                onSnapshot: (nextSnapshot) => {
+                    if (isDisposed) {
+                        return;
+                    }
+
+                    setSnapshot(nextSnapshot as TelemetrySnapshot | null);
+                    setSnapshotTick((previous) => previous + 1);
+                },
+                onClose: () => {
+                    // Keep last snapshot during reconnect.
+                },
+                onError: () => {
+                    // Keep last snapshot during reconnect.
+                },
+            });
+        });
+
+        return () => {
+            isDisposed = true;
+            disconnect?.();
+        };
+    }, [
+        processState?.status,
+        backendStatus?.status,
+        backendStatus?.source_attachment_state,
+        backendStatus?.stream_state,
+    ]);
+
+    const startupViewModel = useMemo(
+        () =>
+            buildStartupViewModel({
+                processState,
+                backendStatus,
+                errorText,
+            }),
+        [processState, backendStatus, errorText],
+    );
+
+    useEffect(() => {
+        if (surface === "control") {
+            return;
+        }
+
+        if (startupViewModel.stage !== "connected") {
+            if (connectedTimerRef.current !== null) {
+                window.clearTimeout(connectedTimerRef.current);
+                connectedTimerRef.current = null;
+            }
+
+            if (!hasTransitionedToDashboardRef.current) {
+                setSurface("startup");
+            }
+
+            return;
+        }
+
+        if (hasTransitionedToDashboardRef.current) {
+            return;
+        }
+
+        if (connectedTimerRef.current !== null) {
+            window.clearTimeout(connectedTimerRef.current);
+        }
+
+        setSurface("startup");
+
+        connectedTimerRef.current = window.setTimeout(() => {
+            hasTransitionedToDashboardRef.current = true;
+            setSurface("dashboard");
+        }, CONNECTED_SUCCESS_HOLD_MS);
+    }, [startupViewModel.stage, surface]);
+
+    if (surface === "dashboard") {
+        console.log("DriverShell render snapshot", snapshot);
+
+        return (
+            <div className="app-screen">
+                <DashboardPage snapshot={snapshot} snapshotTick={snapshotTick} backendStatus={backendStatus} />
+            </div>
+        );
+    }
+
+    if (surface === "control" && SHOW_DEV_CONTROL_PAGE) {
+        return (
+            <div className="app-shell">
+                <main className="app-shell__main">
+                    <ShellHomePage />
+                </main>
+            </div>
+        );
+    }
+
+    return (
+        <div className="app-screen">
+            <StartupPage model={startupViewModel} />
+        </div>
+    );
+}

@@ -5,10 +5,14 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct BootstrapConfig {
+    #[serde(rename = "backendBaseUrl")]
     pub backend_base_url: String,
+
+    #[serde(rename = "backendWebSocketUrl")]
     pub backend_websocket_url: String,
+
+    #[serde(rename = "mode")]
     pub mode: String,
 }
 
@@ -92,7 +96,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             sidecar_executable_path:
-            "sidecars/live_telemetry_sidecar/dist/live-telemetry-sidecar.exe"
+            "sidecars/live_telemetry_sidecar/dist/live-telemetry-sidecar/live-telemetry-sidecar.exe"
                 .to_string(),
             backend_port: 8000,
         }

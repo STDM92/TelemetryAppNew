@@ -15,7 +15,6 @@ datas = []
 if readme.is_file():
     datas.append((str(readme), "."))
 
-
 a = Analysis(
     [str(entry_script)],
     pathex=[str(src_root)],
@@ -28,14 +27,14 @@ a = Analysis(
     excludes=[],
     noarchive=False,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name="live-telemetry-sidecar",
     debug=False,
     bootloader_ignore_signals=False,
@@ -49,4 +48,14 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name="live-telemetry-sidecar",
 )
