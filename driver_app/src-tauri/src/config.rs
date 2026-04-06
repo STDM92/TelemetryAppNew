@@ -49,13 +49,10 @@ pub fn load_config(app: &AppHandle) -> AppConfig {
         }
     };
 
-    match serde_json::from_str::<AppConfig>(&raw) {
-        Ok(config) => config,
-        Err(err) => {
-            log_error(&format!("Failed to parse config file. Using defaults. error={err}"));
-            AppConfig::default()
-        }
-    }
+    serde_json::from_str::<AppConfig>(&raw).unwrap_or_else(|err| {
+        log_error(&format!("Failed to parse config file. Using defaults. error={err}"));
+        AppConfig::default()
+    })
 }
 
 pub fn save_config(app: &AppHandle, config: &AppConfig) -> Result<(), String> {
