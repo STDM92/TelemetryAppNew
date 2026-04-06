@@ -139,9 +139,13 @@ class SessionUplink:
 
     async def _ensure_session_key(self) -> str:
         if self._configured_session_key:
-            self._active_session_key = self._configured_session_key
-            self._engineer_url = self._build_engineer_url(self._active_session_key)
-            return self._configured_session_key
+            session_key = self._normalize_session_key(self._configured_session_key)
+            self._active_session_key = session_key
+            self._engineer_url = self._build_engineer_url(session_key)
+            return session_key
+
+        if self._active_session_key:
+            return self._active_session_key
 
         self._remote_state = "creating_session"
         assert self._server_base_url is not None
@@ -154,12 +158,14 @@ class SessionUplink:
         session_key = self._normalize_session_key(str(data["session_key"]))
         self._active_session_key = session_key
         self._engineer_url = self._build_engineer_url(session_key)
+
         logger.info(
             "Created remote telemetry session. session_key=%s engineer_url=%s",
             session_key,
             self._engineer_url,
         )
         return session_key
+
 
     async def _log_server_hello(self, server_ws: Any) -> None:
         try:

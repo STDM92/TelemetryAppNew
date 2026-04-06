@@ -5,20 +5,26 @@ import { WidgetGrid } from "../../../shared/dashboard/WidgetGrid";
 import type { WidgetId } from "../../../shared/dashboard/widgetTypes";
 
 type StandingsDashboardViewProps = {
-    backendStatus: BackendStatus | null;
-    snapshot: TelemetrySnapshot | null;
+  backendStatus: BackendStatus | null;
+  snapshot: TelemetrySnapshot | null;
+  snapshotTick: number;
 };
 
 const standingsWidgetIds: WidgetId[] = [
-    "standings-info",
+  // keep your existing ids here
 ];
 
-export function StandingsDashboardView({ backendStatus, snapshot }: StandingsDashboardViewProps) {
-    return (
-        <WidgetGrid
-            backendStatus={backendStatus}
-            snapshot={snapshot}
-            widgetIds={standingsWidgetIds}
-        />
-    );
+export function StandingsDashboardView({
+  backendStatus,
+  snapshot,
+  snapshotTick,
+}: StandingsDashboardViewProps) {
+  return (
+    <WidgetGrid
+      backendStatus={backendStatus}
+      snapshot={snapshot}
+      snapshotTick={snapshotTick}
+      widgetIds={standingsWidgetIds}
+    />
+  );
 }

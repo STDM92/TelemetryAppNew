@@ -5,21 +5,26 @@ import { WidgetGrid } from "../../../shared/dashboard/WidgetGrid";
 import type { WidgetId } from "../../../shared/dashboard/widgetTypes";
 
 type PitInfoDashboardViewProps = {
-    backendStatus: BackendStatus | null;
-    snapshot: TelemetrySnapshot| null;
+  backendStatus: BackendStatus | null;
+  snapshot: TelemetrySnapshot | null;
+  snapshotTick: number;
 };
 
 const pitInfoWidgetIds: WidgetId[] = [
-    "pit-info",
+  // keep your existing ids here
 ];
 
-export function PitInfoDashboardView({ backendStatus, snapshot }: PitInfoDashboardViewProps) {
-    return (
-        <WidgetGrid
-            backendStatus={backendStatus}
-            snapshot={snapshot}
-            widgetIds={pitInfoWidgetIds}
-        />
-    );
+export function PitInfoDashboardView({
+  backendStatus,
+  snapshot,
+  snapshotTick,
+}: PitInfoDashboardViewProps) {
+  return (
+    <WidgetGrid
+      backendStatus={backendStatus}
+      snapshot={snapshot}
+      snapshotTick={snapshotTick}
+      widgetIds={pitInfoWidgetIds}
+    />
+  );
 }
-

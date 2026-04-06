@@ -32,11 +32,26 @@ export function DashboardShell({
   const content = useMemo(() => {
     switch (activeView) {
       case "standings":
-        return <StandingsDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
+        return (
+          <StandingsDashboardView
+            backendStatus={backendStatus}
+            snapshot={snapshot}
+            snapshotTick={snapshotTick}
+          />);
       case "pits":
-        return <PitInfoDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
+        return (
+          <PitInfoDashboardView
+            backendStatus={backendStatus}
+            snapshot={snapshot}
+            snapshotTick={snapshotTick}
+          />);
       case "sessionInfo":
-        return <SessionInfoDashboardView backendStatus={backendStatus} snapshot={snapshot} />;
+        return (
+          <SessionInfoDashboardView
+            backendStatus={backendStatus}
+            snapshot={snapshot}
+            snapshotTick={snapshotTick}
+          />);
       case "telemetry":
       default:
         return (

@@ -16,6 +16,8 @@ const SHOW_DEV_CONTROL_PAGE = false;
 const POLL_INTERVAL_MS = 1500;
 const CONNECTED_SUCCESS_HOLD_MS = 4000;
 
+export type ShellPageId = "home" | "dashboard";
+
 function buildStartupViewModel(args: {
   processState: SidecarProcessState | null;
   backendStatus: BackendStatus | null;

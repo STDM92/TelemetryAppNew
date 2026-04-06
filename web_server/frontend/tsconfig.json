@@ -16,8 +16,6 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": [
-    "../../../../Downloads/telemetry_web_server_engineer_frontend_from_shared/web_server/frontend/src"
-  ],
+  "include": ["src"],
   "references": []
 }
